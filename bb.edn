@@ -1,0 +1,33 @@
+{:pods {clj-kondo/clj-kondo {:version "2023.01.20"}}
+ :tasks
+ {:requires ([pod.borkdude.clj-kondo :as clj-kondo])
+  :init
+  (defn X [cmd]
+    (let [args *command-line-args*]
+      (if (even? (count args))
+        (apply shell cmd args)
+        (do (println "Please supply an even number of arguments!")
+            (System/exit 1)))))
+
+  clerk-watch
+  {:doc "Start a Clerk dev server. Any options supplied are passed to `clerk/serve!`."
+   :task (X "clojure -X:dev:watch")}
+
+  build-static
+  {:doc "Generate a fresh static build."
+   :task
+   (do (X "clojure -X:dev:nextjournal/clerk")
+       (spit "./public/CNAME" ""))}
+
+  release-gh-pages
+  {:doc "Generate a fresh static build and release it to Github Pages."
+   :task
+   (do (shell "rm -rf public")
+       (run 'build-static)
+       (shell "npm install")
+       (shell "npm run gh-pages"))}
+
+  lint
+  {:doc "Lint the src and dev directories with clj-kondo."
+   :task (clj-kondo/print!
+          (clj-kondo/run! {:lint ["src" "dev"]}))}}}
