@@ -1,4 +1,4 @@
-(ns gameboard-exercise.utils)
+(ns gameboard-exercise.utils (:require [clojure.string :as str]))
 
 
 (defn seek
@@ -14,6 +14,7 @@
                not-found))
            not-found coll)))
 
+(def upper-case-keyword (comp keyword str/upper-case name))
 
 (defn replace-in-set [s old-elem new-elem]
   (if (contains? s old-elem)

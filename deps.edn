@@ -1,4 +1,4 @@
-{:paths ["src" "dev"]
+{:paths ["src" "notebooks" "dev"]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         io.github.nextjournal/clerk
         {:git/tag "v0.15.957" :git/sha "9c38ff3ef240c9bd21e596792adb2ebdbb5a738d"}}
@@ -19,4 +19,4 @@
    {org.babashka/cli    {:mvn/version "0.5.40"}
     org.slf4j/slf4j-nop {:mvn/version "1.7.36"}}
    :exec-fn   user/start!
-   :exec-args {:watch-paths ["src"]}}}}
+   :exec-args {:watch-paths ["notebooks"]}}}}

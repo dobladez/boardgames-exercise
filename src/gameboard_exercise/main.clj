@@ -1,33 +1,12 @@
 ;; # Example of "Stratified Design"
 ^{:nextjournal.clerk/visibility {:code :hide}}
-(ns gameboard-exercise.core
+(ns gameboard-exercise.main
   (:require [nextjournal.clerk :as clerk]
-            [gameboard-exercise.clerk-viewers :as viewers]
-            ))
-
-;;
-;; In this project we create a toy domain-specific language (DSL) to model
-;; simple grid-based board games. Based on this core model, we can implement
-;; tic-tac-toe, chess, and checkers. The goal is purely pedagogical, to discover
-;; and learn about good software design.
-
-;; This can be seen as an example of "stratified design": when programs are
-;; structured as levels, each of which defines a small "language" for a
-;; particular problem domain and provides new primitives to build higher
-;; solutions on top of it. So, instead of modelling the game of checkers (or
-;; chess) as a whole, we extract a more generic domain language for board games,
-;; providing a common basic language which can be used to model multiple
-;; different games.
-
-;;
-;; TODO: references
-;;  * Lisp: a lang for stratified design
-;;  * blog about layers vs strata
-;;  * Eric normand's book.
+            [gameboard-exercise.clerk-viewers :as viewers]))
 
 ;;
 
-^{:nextjournal.clerk/visibility {:code :hide :result :hide }}
+^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
 (clerk/add-viewers! [viewers/board-viewer])
 
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}

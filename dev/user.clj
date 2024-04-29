@@ -5,8 +5,8 @@
   "Starts a Clerk server process "
   ([] (start! {}))
   ([opts]
-   (let [defaults {:port 7777
-                   :watch-paths ["notebooks" "src"]
+   (let [defaults {:port 7778
+                   :watch-paths ["notebooks" #_"src"]
                    :browse? true}]
      (clerk/serve!
 
@@ -20,10 +20,17 @@
   )
 
 
+
 (comment
   (start!)
   (clerk/clear-cache!)
   (stop!)
+
+
+  (nextjournal.clerk/show! 'gameboard)
+  (nextjournal.clerk/show! 'nextjournal.clerk.tap)
+
+  (clerk/show! 'gameboard)
 
   ;; If you started your repl with Portal in the classpath:
   (require 'portal.api)

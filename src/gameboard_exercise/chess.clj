@@ -1,59 +1,39 @@
 
 ;; # Chess
-^{:nextjournal.clerk/visibility {:code :hide}}
+^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (ns gameboard-exercise.chess
-  (:require [nextjournal.clerk :as clerk]
+  (:require [gameboard-exercise.utils :refer [upper-case-keyword]]
+            [nextjournal.clerk :as clerk]
             [gameboard-exercise.clerk-viewers :as viewers]
             [gameboard-exercise.core :as core :refer [dir-up dir-down dir-left dir-right dir-up-left
-                                                      dir-up-right dir-down-left dir-down-right]]
-            ))
+                                                      dir-up-right dir-down-left dir-down-right]]))
 
-^{:nextjournal.clerk/visibility {:code :hide :result :hide }}
 (clerk/add-viewers! [viewers/board-viewer])
 
-^{:nextjournal.clerk/visibility {:code :hide :result :hide }}
-(def upper-case-keyword (comp keyword clojure.string/upper-case name))
+(def initial-chess-symbolic-board [[:r :n :b :q :k :b :n :r]
+                                   [:p :p :p :p :p :p :p :p]
+                                   [:- :- :- :- :- :- :- :-]
+                                   [:- :- :- :- :- :- :- :-]
+                                   [:- :- :- :- :- :- :- :-]
+                                   [:- :- :- :- :- :- :- :-]
+                                   [:P :P :P :P :P :P :P :P]
+                                   [:R :N :B :Q :K :B :N :R]])
 
-
-(def chess-symbolic-board [[:r :n :b :q :k :b :n :r]
-                           [:p :p :p :p :p :p :p :p]
-                           [:- :- :- :- :- :- :- :-]
-                           [:- :- :- :- :- :- :- :-]
-                           [:- :- :- :- :- :- :- :-]
-                           [:- :- :- :- :- :- :- :-]
-                           [:P :P :P :P :P :P :P :P]
-                           [:R :N :B :Q :K :B :N :R]])
-
-^{:nextjournal.clerk/visibility {:code :show :result :hide }}
+^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (defn initiate-chess-board []
-  (core/symbolic->board chess-symbolic-board))
-
-
-(def board1 (initiate-chess-board))
-
-;; Shuffle the pieces
-(->> board1
-     core/board->symbolic
-     (apply concat)
-     shuffle
-     (partition 8)
-     core/symbolic->board)
+  (core/symbolic->board initial-chess-symbolic-board))
 
 (defn initiate-fisher-chess-board []
-  (let [first-row (shuffle (first chess-symbolic-board))
+  (let [first-row (shuffle (first initial-chess-symbolic-board))
         last-row (->> first-row (map upper-case-keyword) reverse vec)]
-    (-> chess-symbolic-board
+    (-> initial-chess-symbolic-board
         (assoc 0 first-row)
         (assoc 7 last-row)
         core/symbolic->board)))
 
-(initiate-fisher-chess-board)
-
+;; TODO: rules
 (def chess-evolution-rules
-  [
-   (fn simple-pawn-rule []
-     )
-   ])
+  [(fn simple-pawn-rule [])])
 
 (def chess-aggregate-rules [])
 
@@ -65,34 +45,29 @@
 (def king-basic-moves all-dirs)
 
 ;; ### Pawn partial move
-#_(defmethod core/continue-pmove-for-piece :p
-    [pmove]
-    (let [steps (reverse (:steps pmove))
-          player (-> steps last :piece :player)
-          direction (if (= 0 player) dir-up dir-down)
-          unfinshed-pmove (core/pmove-append-piece-move pmove direction)
-          finished-pmove (core/pmove-finish unfinshed-pmove)]
+(defmethod core/continue-pmove-for-piece :p  [pmove]
+  (let [steps (reverse (:steps pmove));;; TODO remove reverse
+        player (-> steps last :piece :player);; TODO easier
+        direction (if (= 0 player) dir-up dir-down);; TODO extract to generic "(flip-direction player dirs)"
+        unfinshed-pmove (core/pmove-append-piece-move pmove direction)
+        finished-pmove (core/pmove-finish unfinshed-pmove)]
 
-      (if (or (> (count steps) 1)
-              (-> steps first :piece (core/piece-flag? :moved)))
-        (list finished-pmove)
-        (list finished-pmove unfinshed-pmove))))
+    ;; TODO capturing moves and en passant. Maybe seperate function?
+    (if (or (> (count steps) 1)
+            (-> steps first :piece (core/piece-flag? :moved)))
+      (list finished-pmove)
+      (list finished-pmove unfinshed-pmove))))
 
-(defn- pmove-last-step-direction [pmove]
-  (when (> (count (:steps pmove)) 1)
-    (let [[last-step prior-step] (:steps pmove)]
-      (mapv - (-> last-step :piece :pos) (-> prior-step :piece :pos)))))
+;; ### Rook
+(defmethod core/continue-pmove-for-piece :r [pmove]
+  (let [previous-dir (core/pmove-last-step-direction pmove)
+        next-dirs (if previous-dir (list previous-dir) rook-dirs)
+        new-pmoves (->> next-dirs
+                        (map (partial core/pmove-append-piece-move pmove))
+                        (remove core/pmove-on-same-player-piece?))]
+    (concat new-pmoves (map core/pmove-finish new-pmoves))))
 
-;; ### Rook partial move
-#_ (defmethod core/continue-pmove-for-piece :r
-     [pmove]
-     (let [steps (:steps pmove)
-           direction (pmove-last-step-direction pmove)
-           new-pmoves (if direction
-                        (list (core/pmove-append-piece-move pmove direction))
-                        (map (partial core/pmove-append-piece-move pmove) rook-dirs))]
-       (concat new-pmoves (map core/pmove-finish new-pmoves))
-       #_(map core/pmove-finish new-pmoves)))
+
 
 #_(core/defgame chess-game
     {:name "Chess"
@@ -107,3 +82,40 @@
 
 ;; Usage
 (def aGame (core/start-game chess-game))
+;;;
+;;
+
+;;
+;; FEN notation
+;;
+(defn- piece->fen [piece]
+  (case piece
+    :- "."
+    (name piece)))
+
+(defn- row->fen [row]
+  (let [row-str (apply str (map piece->fen row))
+        grouped (re-seq #"\.+|[^\.]+" row-str)]
+    (apply str (map (fn [s]
+                      (if (.startsWith s ".")
+                        (str (count s))
+                        s))
+                    grouped))))
+
+(defn board->fen [board]
+  (->> board
+       (map row->fen)
+       (interpose "/")
+       (apply str)))
+
+(def initial-board
+  [[:r :n :b :q :k :b :n :r]
+   [:p :p :p :p :p :p :p :p]
+   [:- :- :- :- :- :- :- :-]
+   [:- :- :- :- :- :- :- :-]
+   [:P :- :- :- :- :- :- :-]
+   [:- :- :- :- :- :- :- :-]
+   [:- :P :P :P :P :P :P :P]
+   [:R :N :B :Q :K :B :N :R]])
+
+(board->fen initial-board)
