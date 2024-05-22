@@ -51,11 +51,19 @@
               :col-n col-n}
     {:tag :gameboard}))
 
+(defn opponent [player]
+  (if (= 0 player) 1 0))
+
+
 (defn empty-board [n-rows n-columns]
   (new-board #{} n-rows n-columns))
 
 (defn pieces-at-pos [board pos]
   (filter #(= pos (:pos %)) (:pieces board)))
+
+(defn pieces-matching [board partial-piece]
+  (filter #(= (select-keys % (keys partial-piece)) partial-piece)
+          (:pieces board)))
 
 ;;
 ;; ## Games
@@ -98,7 +106,7 @@
 (defn- pmove-add-step [pmove update-fn]
   (update-in pmove [:steps] (fn [steps] (conj steps (update-fn (first steps))))))
 
-(defn pmove-append-piece-move [pmove dir]
+(defn pmove-move-piece [pmove dir]
   (pmove-add-step pmove
                   (fn move-piece-step [step]
                     (let [from-piece (:piece step)
@@ -107,9 +115,18 @@
                           (update-in [:board :pieces] replace-in-set from-piece to-piece)
                           (assoc-in [:piece] to-piece))))))
 
-(defn pmove-append-piece-remove [pmove]
-  )
-(defn pmove-append-piece-add [pmove])
+(defn pmove-capture-piece [pmove captured-pieces]
+  ;; TODO: FIX! captures should be at step level, not pmove
+  #_(assoc :captures piece)
+  ;; (update-in [:steps first :board :pieces] disj piece)
+  (update-in pmove [:steps]
+             (fn [steps]
+               (let [first-step (-> steps first)]
+                 (-> (drop 1 steps)
+                     (conj
+                      (-> first-step
+                          (assoc :captures captured-pieces)
+                          (update-in [:board :pieces] #(reduce disj % captured-pieces)))))))))
 
 (defn pmove-last-step-direction [pmove]
   (when (> (count (:steps pmove)) 1)
@@ -117,9 +134,11 @@
       (mapv - (-> last-step :piece :pos) (-> prior-step :piece :pos)))))
 
 (defn pmove-on-same-player-piece? [pmove]
-  (let [board (-> pmove :steps first :board)
-        pos (-> pmove :steps first :piece :pos)]
-    (< 1 (count (pieces-at-pos board pos)))))
+  (let [first-step (-> pmove :steps last)
+        starting-board (:board first-step)
+        last-step (-> pmove :steps first)
+        piece (:piece last-step)]
+    (not (empty? (pieces-matching starting-board (select-keys piece [:player :pos]))))))
 
 (defn pmove-finish [pmove]
   (assoc pmove :finished? true))
@@ -151,16 +170,19 @@
 
 (defn possible-pmoves "Returns list of all valid (and finished) pmoves"
   [game-state]
-  (let [board (:board game-state)
-        turn (:turn game-state)]
-    (mapcat (fn [piece]
-              (possible-pmoves-for-piece (new-pmove board piece)))
-            (filter #(= turn (:player %)) (:pieces board)))))
 
+  (let [board (:board game-state)]
+    (->> board
+         :pieces
+         (filter #(= (:turn game-state)
+                     (:player %)))
+         (mapcat #(possible-pmoves-for-piece (new-pmove board %))))
 
-(defn game-loop [rules-maybe])
+    #_(mapcat (fn [piece]
+                (possible-pmoves-for-piece (new-pmove board piece)))
+              (filter #(= turn (:player %)) (:pieces board)))))
 
-(defn board->symbolic [board]
+(defn OLD_board->symbolic [board]
   (let [rows  (:row-n board)
         cols (:col-n board)
         empty-board (vec (repeat rows (vec (repeat cols :-))))]
@@ -174,7 +196,21 @@
          reverse
          vec)))
 
-(defn symbolic->board [symbolic-board]
+(defn board->symbolic [board]
+  (let [rows  (:row-n board)
+        cols (:col-n board)
+        empty-board (vec (repeat rows (vec (repeat cols '-))))]
+    (->> (:pieces board)
+         (reduce (fn [board piece]
+                   (assoc-in board (reverse (:pos piece))
+                             (if (= 1 (:player piece))
+                               (symbol  (:type piece))
+                               (-> piece :type name upper-case symbol))))
+                 empty-board)
+         reverse
+         vec)))
+
+(defn OLD_symbolic->board [symbolic-board]
   (let [pieces (remove nil?
                        (flatten
                         (map-indexed (fn [row-idx row]
@@ -187,29 +223,21 @@
                                                     row))
                                      (reverse symbolic-board))))]
     (new-board pieces (count symbolic-board) (count (first symbolic-board)))))
-#_(comment
 
-    (def aPiece {:type :r     ;; possible keywords here defined by each game
-                 :player 0    ;;
-                 :position??? nil})
+(defn symbolic->board [symbolic-board]
+  (let [pieces (remove nil?
+                       (flatten
+                        (map-indexed (fn [row-idx row]
+                                       (map-indexed (fn [col-idx square]
+                                                      (when-not (= square '-)
+                                                        (new-piece (-> square name lower-case keyword)
+                                                                   (if (= (name square) (upper-case (name square)))
+                                                                     0 1)
+                                                                   [col-idx row-idx])))
+                                                    row))
+                                     (reverse symbolic-board))))]
+    (new-board pieces (count symbolic-board) (count (first symbolic-board)))))
 
-    (def aGame {:name :chess
-                :player-count 2
-                :board {:pieces (initial-chess-board)
-                        :turn 0
-                        :last-move [:type \?]}})
-    (def a-step {:board {} :piece {} :flags #{}})
-    (def a-pmove1 {:board {} :piece {} :steps []})
 
-    (def a-pmove {:finished? false
-                  :flags #{}
-                  :steps '({:board {} :piece {} :flags #{}}
-                           {:board {} :piece {} :flags #{}
-                          ;; ...
-                            })})
-    (def a-pmove {:finished? false
-                  :flags #{}
-                  :steps '({:board {} :piece {} :flags #{}}
-                           {:board {} :piece {} :flags #{}
-                          ;; ...
-                            })}))
+
+#_(defn game-loop [rules-maybe])

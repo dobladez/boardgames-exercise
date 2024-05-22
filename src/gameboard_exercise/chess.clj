@@ -10,7 +10,7 @@
 
 (clerk/add-viewers! [viewers/board-viewer])
 
-(def initial-chess-symbolic-board [[:r :n :b :q :k :b :n :r]
+(def __initial-chess-symbolic-board [[:r :n :b :q :k :b :n :r]
                                    [:p :p :p :p :p :p :p :p]
                                    [:- :- :- :- :- :- :- :-]
                                    [:- :- :- :- :- :- :- :-]
@@ -18,6 +18,15 @@
                                    [:- :- :- :- :- :- :- :-]
                                    [:P :P :P :P :P :P :P :P]
                                    [:R :N :B :Q :K :B :N :R]])
+
+(def initial-chess-symbolic-board '[[r n b q k b n r]
+                                    [p p p p p p p p]
+                                    [- - - - - - - -]
+                                    [- - - - - - - -]
+                                    [- - - - - - - -]
+                                    [- - - - - - - -]
+                                    [P P P P P P P P]
+                                    [R N B Q K B N R]])
 
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (defn initiate-chess-board []
@@ -49,7 +58,7 @@
   (let [steps (reverse (:steps pmove));;; TODO remove reverse
         player (-> steps last :piece :player);; TODO easier
         direction (if (= 0 player) dir-up dir-down);; TODO extract to generic "(flip-direction player dirs)"
-        unfinshed-pmove (core/pmove-append-piece-move pmove direction)
+        unfinshed-pmove (core/pmove-move-piece pmove direction)
         finished-pmove (core/pmove-finish unfinshed-pmove)]
 
     ;; TODO capturing moves and en passant. Maybe seperate function?
@@ -59,13 +68,101 @@
       (list finished-pmove unfinshed-pmove))))
 
 ;; ### Rook
-(defmethod core/continue-pmove-for-piece :r [pmove]
+(defmethod core/continue-pmove-for-piece :r_OLD [pmove]
   (let [previous-dir (core/pmove-last-step-direction pmove)
         next-dirs (if previous-dir (list previous-dir) rook-dirs)
         new-pmoves (->> next-dirs
-                        (map (partial core/pmove-append-piece-move pmove))
+                        (map (partial core/pmove-move-piece pmove))
                         (remove core/pmove-on-same-player-piece?))]
     (concat new-pmoves (map core/pmove-finish new-pmoves))))
+
+;;
+;; Rook v2 (WIP
+;;
+
+
+;; possible combinators:
+;; 1. move piece in given direction:  pmove -> [pmove]
+;; 2. 2nd+ steps on same direction :  pmove -> pmove | nil (or [pmove] -> [pmove])
+;; 3. stop on same-player piece (obstruction):  pmove -> pmove | nil (or [pmove] -> [pmove])
+;; 4. stop on board edge :  pmove -> pmove | nil (or [pmove] -> [pmove])
+;; 5. capture on opponent piece :  pmove -> pmove
+;; 6. capture on en passant :  pmove -> pmove
+;; 7. promotion :  pmove -> pmove
+;; 8. castling :  pmove -> pmove
+;; 9. check :  pmove -> pmove
+;; 10. checkmate :  pmove -> pmove
+;; 11. stalemate :  pmove -> pmove
+
+
+;; (defn pmove-move-piece-dirs [dirs pmove]
+;;   (map (partial core/pmove-move-piece pmove) dirs))
+
+(defn pmove-move-piece-same-dir [possible-dirs pmove]
+  (let [previous-dir (core/pmove-last-step-direction pmove)
+        next-dirs (if previous-dir (list previous-dir) possible-dirs)]
+    (->> next-dirs
+         (map (partial core/pmove-move-piece pmove)))))
+
+(defn pmoves-stepping-own-disallowed [pmoves]
+  (remove core/pmove-on-same-player-piece? pmoves))
+
+(defn pmoves-finish-at-one-or-more-steps [pmoves]
+  (concat pmoves (map core/pmove-finish pmoves)))
+
+(defn pmoves-finish-at-one-step [pmoves]
+  (concat pmoves (map core/pmove-finish pmoves)))
+
+(defn pmoves-finish-capturing-opponent-piece [pmove]
+;; TODO
+
+  #_(concat pmoves (map core/pmove-finish pmoves))
+  (let [first-step (-> pmove :steps last)
+        starting-board (:board first-step)
+        last-step (-> pmove :steps first)
+        piece (:piece last-step)]
+    (if-let [captured (seq (core/pieces-matching starting-board
+                                                 {:pos (:pos piece)
+                                                  :player (core/opponent
+                                                           (piece :player))}))]
+      (-> pmove
+          (core/pmove-capture-piece captured)
+          core/pmove-finish)
+
+      pmove)))
+
+;;
+;; Ideas of combinators:
+;;
+;; (pmove-expand-alt
+;;        (pmove-expand-if-first-step dirs)
+;;        (pmove-expand-on-same-direction))
+;;
+;; (remove (some-fn
+;;;          pmove-on-same-player-piece?
+;;           pmove-outside-board?
+;;           in-check?)) ; <- for King
+
+;;
+;; Pattern:
+;;   1. expand: pmove -> [pmove]
+;;   2. filter: [pmove] -> [pmove] (remove some pmoves)
+;;   3. enrich: [pmove] -> [pmove] (update it with additional info/flags/captured pieces)
+;;   4. finish: [pmove] -> [pmove] (might expand)
+;;
+(defmethod core/continue-pmove-for-piece :r [pmove]
+  (->> #_ (pmove-expand-if-first-step dirs) ;; expander
+       #_ (pmove-expand-on-same-direction)
+
+       #_ (if (pmove-first-step? pmove)
+            (pmove-move-piece-dirs pmove dirs)
+            (pmove-move-piece-same-dir pmove))
+       (pmove-move-piece-same-dir rook-dirs pmove)
+       (remove core/pmove-on-same-player-piece?)
+       ;; TODO finish at other player piece (capture)
+       (map pmoves-finish-capturing-opponent-piece)
+       (pmoves-finish-at-one-or-more-steps)) ;; vs pmoves-finish-at-one-step ?
+  )
 
 
 
