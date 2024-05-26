@@ -3,7 +3,8 @@
 (ns gameboard-exercise.clerk-viewers
   (:require [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as clerk-viewer]
-            [gameboard-exercise.core :as core]))
+            [gameboard-exercise.core :as core]
+            [gameboard-exercise.utils :as utils :refer [ttap>]]))
 
 (def ^:private board-render-fn
 
@@ -174,19 +175,24 @@ test-board
    :transform-fn
    (comp clerk/mark-presented (clerk/update-val
                                (fn [move]
-                                 #_(tap> move)
+                                 #_(ttap> move)
                                  (let [steps (:steps move)
                                        board (:board (first steps))
                                        from-pos (->  (last steps) :piece :pos)
                                        to-pos  (->  (first steps) :piece :pos)
                                        captures? (:captures (first steps))]
 
-                                   [(core/board->symbolic board) from-pos to-pos captures?]))))
+                                   [(core/board->symbolic (ttap> board)) from-pos to-pos captures?]))))
    :render-fn board-render-fn})
 
 
 (def tabbed-board-move-viewer (new-tabbed-viewer {"Board" board-move-viewer
                                                   "Data" clerk-viewer/map-viewer }))
+
+
+(def tabbed-side-by-side-move-viewer (new-side-by-side-viewer {"Data" clerk-viewer/map-viewer
+                                                               "Board" board-move-viewer}))
+
 
 
 

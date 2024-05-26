@@ -22,3 +22,8 @@
         (disj old-elem)
         (conj new-elem))
     s))
+
+(defmacro ttap> [& body]
+  `(let [result# (do ~@body)]
+     (tap> result#)
+     result#))

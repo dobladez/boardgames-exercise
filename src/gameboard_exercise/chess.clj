@@ -2,11 +2,13 @@
 ;; # Chess
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (ns gameboard-exercise.chess
-  (:require [gameboard-exercise.utils :refer [upper-case-keyword]]
+  (:require [gameboard-exercise.utils :refer [upper-case-keyword ttap>]]
             [nextjournal.clerk :as clerk]
             [gameboard-exercise.clerk-viewers :as viewers]
-            [gameboard-exercise.core :as core :refer [dir-up dir-down dir-left dir-right dir-up-left
-                                                      dir-up-right dir-down-left dir-down-right]]))
+            [gameboard-exercise.core
+             :as core
+             :refer [dir-up dir-down dir-left dir-right dir-up-left
+                     dir-up-right dir-down-left dir-down-right]]))
 
 {::clerk/visibility {:code :show :result :hide}
  ::clerk/auto-expand-results? true
@@ -47,6 +49,8 @@
                    [-2 +1] [-1 +2] [+1 +2] [+2 +1]])
 (def king-basic-moves all-dirs)
 
+
+
 ;; ### Pawn partial move
 (defmethod core/continue-pmove-for-piece :p  [pmove]
   (let [steps (reverse (:steps pmove));;; TODO remove reverse
@@ -61,14 +65,7 @@
       (list finished-pmove)
       (list finished-pmove unfinshed-pmove))))
 
-;; ### Rook
-(defmethod core/continue-pmove-for-piece :r_OLD [pmove]
-  (let [previous-dir (core/pmove-last-step-direction pmove)
-        next-dirs (if previous-dir (list previous-dir) rook-dirs)
-        new-pmoves (->> next-dirs
-                        (map (partial core/pmove-move-piece pmove))
-                        (remove core/pmove-on-same-player-piece?))]
-    (concat new-pmoves (map core/pmove-finish new-pmoves))))
+
 
 (defn pmove-move-piece-same-dir [possible-dirs pmove]
   (let [previous-dir (core/pmove-last-step-direction pmove)
@@ -76,23 +73,35 @@
     (->> next-dirs
          (map (partial core/pmove-move-piece pmove)))))
 
+(defn pmove-changed-direction? [pmove]
+  (when (> (count (:steps pmove)) 1)
+    (< 1 (count
+          (into #{}
+                (for [[step-a step-b] (partition 2 1 (:steps pmove))]
+                  (mapv - (-> step-a :piece :pos) (-> step-b :piece :pos))))))))
+
+(defn pmove-expand-piece-dirs [possible-dirs pmove]
+  (->> possible-dirs
+       (map (partial core/pmove-move-piece pmove))))
+
 (defn pmoves-stepping-own-disallowed [pmoves]
   (remove core/pmove-on-same-player-piece? pmoves))
 
-(defn pmoves-finish-at-one-or-more-steps [pmoves]
-  (concat pmoves (map core/pmove-finish pmoves)))
+
+(defn pmoves-finish-and-continue [pmoves]
+  (let [{finished true unfinished false} (group-by core/pmove-finished? pmoves)]
+    (concat unfinished finished (map core/pmove-finish unfinished))))
 
 (defn pmoves-finish-at-one-step [pmoves]
   (concat pmoves (map core/pmove-finish pmoves)))
 
 (defn pmoves-finish-capturing-opponent-piece [pmove]
-;; TODO
-
-  #_(concat pmoves (map core/pmove-finish pmoves))
   (let [first-step (-> pmove :steps last)
         starting-board (:board first-step)
         last-step (-> pmove :steps first)
         piece (:piece last-step)]
+
+    ;; This supports capturing multiple pieces. Not needed for chess
     (if-let [captured (seq (core/pieces-matching starting-board
                                                  {:pos (:pos piece)
                                                   :player (core/opponent
@@ -164,20 +173,76 @@
 ;;   (map (partial core/pmove-move-piece pmove) dirs))
 
 ;;
-(defmethod core/continue-pmove-for-piece :r [pmove]
-  (->> #_(pmove-expand-if-first-step dirs) ;; expander
+
+
+;; ### Rook
+(defmethod core/continue-pmove-for-piece :r_OLD [pmove]
+  (->>
+
+   #_(pmove-expand-if-first-step dirs) ;; expander
    #_(pmove-expand-on-same-direction)
 
    #_(if (pmove-first-step? pmove)
        (pmove-move-piece-dirs pmove dirs)
        (pmove-move-piece-same-dir pmove))
    (pmove-move-piece-same-dir rook-dirs pmove)
-       (remove core/pmove-on-same-player-piece?)
+   (remove core/pmove-on-same-player-piece?)
        ;; TODO finish at other player piece (capture)
-       (map pmoves-finish-capturing-opponent-piece)
-       (pmoves-finish-at-one-or-more-steps)) ;; vs pmoves-finish-at-one-step ?
+   (map pmoves-finish-capturing-opponent-piece)
+   (pmoves-finish-and-continue)) ;; vs pmoves-finish-at-one-step ?
   )
 
+(defn pmoves-discard [pred coll]
+  (remove pred coll))
+
+
+(defmethod core/continue-pmove-for-piece :r [pmove]
+  (->> pmove
+       (pmove-expand-piece-dirs rook-dirs)
+       (pmoves-discard (some-fn pmove-changed-direction?
+                                core/pmove-on-same-player-piece?
+                                #_ pmove-outside-board?))
+       #_(pmoves-enrich (pmove-capture-piece))
+       (map pmoves-finish-capturing-opponent-piece)
+       #_(pmoves-finish-all)
+       (pmoves-finish-and-continue) ))
+
+#_(comment
+
+    (-> pmove
+        (pmove-expand (pmove-move-piece-dirs dirs))   ;; pmove -> [pmove]
+        (pmoves-discard (pmove-on-same-player-piece?)) ;; [pmove] -> [pmove] (shrink)
+        (pmoves-enrich (pmove-capture-piece)) ;; [pmove] -> [pmove] (enrich, that is: map)
+        (pmoves-finish))   ;; [pmove] -> [pmove] (finish, that is: map and maybe concat)
+
+    (-> pmove
+        (pmove-expand-piece-dirs dirs)
+        (pmoves-discard  (some-fn pmove-changed-direction?
+                                  pmove-on-same-player-piece?
+                                  pmove-outside-board?))
+        (pmoves-enrich (pmove-capture-piece))
+        (pmoves-finish-all))
+
+    ;; Pawn, move fwd:
+    (-> pmove
+        (pmove-expand-piece-dirs [dir-up]) ;; or down for black
+        (pmoves-discard (some-fn (pmove-max-step-count-n 2)
+                                 (pmove-max-step-count-n-p 1 piece-first-move?)
+                                 pmove-on-same-player-piece?
+                                 pmove-on-other-player-piece?
+                                 pmove-outside-board?))
+        (pmoves-enrich (pmove-enrich-enpassant)
+                       (pmove-enrich-promotion))
+        (pmoves-finish-all))
+
+    ;; Pawn, move capture:
+    (-> pmove
+        (pmove-expand-piece-dirs [dir-up-right dir-up-left]) ;; or down for black
+        (pmoves-discard (some-fn (every-pred (complement pmove-on-other-player-piece?)
+                                             pmove-on-enpassant-pawn?)
+                                 pmove-outside-board?))
+        (pmoves-enrich (pmove-capture-piece))
+        (pmoves-finish-all)))
 
 
 
@@ -192,13 +257,13 @@
 
 (core/defgame fisher-chess-game "Chess" 2 initiate-fisher-chess-board chess-evolution-rules chess-aggregate-rules)
 
-;; Usage
-(def aGame (core/start-game chess-game))
-;;;
-;;
+;; Usage:
+(comment
+  (def aGame (core/start-game chess-game)))
+
 
 ;;
-;; FEN notation
+;; Convert to/from FEN notation
 ;;
 (defn- piece->fen [piece]
   (case piece
@@ -220,14 +285,5 @@
        (interpose "/")
        (apply str)))
 
-(def initial-board
-  [[:r :n :b :q :k :b :n :r]
-   [:p :p :p :p :p :p :p :p]
-   [:- :- :- :- :- :- :- :-]
-   [:- :- :- :- :- :- :- :-]
-   [:P :- :- :- :- :- :- :-]
-   [:- :- :- :- :- :- :- :-]
-   [:- :P :P :P :P :P :P :P]
-   [:R :N :B :Q :K :B :N :R]])
-
-(board->fen initial-board)
+(comment
+  (board->fen initial-chess-symbolic-board))

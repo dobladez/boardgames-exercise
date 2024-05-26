@@ -236,18 +236,39 @@
       (assoc (dec (count symboard)) last-row)
       core/symbolic->board))
 
-;; ## Generating (valid) moves
-;; ### TBD
+;; ## Moving pieces
+
 ;; OK. This is the core problem of this domain: How to decide which moves are valid?
 ;;
 ;; I find it's better to model the problem as that of generating valid
-;; moves. So, the question becomes: How to generate all valid moves?
+;; moves. So, the question becomes: _How to generate all valid moves at a given board?_
 ;;
-;; In the case of chess, the valid moves for a piece depend on its type. So
-;; we'd like to have a way to code the move-generation logic independently for
-;; each piece type. Some of them share similar moves (diagonals, orthogonal,
-;; cannot go over other pieces, etc.), so it'd be nice to code this "behaviors"
-;; separately and combine them to define the final piece types.
+;; In the case of chess, the valid moves for a piece depend on its type. So we'd
+;; like to have a way to code the move-generation logic independently for each
+;; piece type. Some of them share similar moves (diagonals, orthogonal, cannot
+;; go over other pieces, captures oponent pieces, etc.), so it'd be nice to code
+;; this "behaviors" separately and combine them to define the final piece types.
+;;
+;; *TBD*
+
+;; ### Generating possible (valid) moves
+;;
+;; We model a move as list of (one or more) steps. Each step includes the piece
+;; it applies to and the resulting board state. The very first step is the
+;; initial board.
+;;
+;; While generating possible moves, a move is grown one step at a time. Here we
+;; refer to them as `pmoves`  (for "partial moves").  A `pmove` that is not
+;; `:finished?` may be expanded with more steps until it becomes so.
+;;
+;; Example of a `pmove` in the making (using a small board to avoid noise):
+;;
+
+^{::clerk/viewer viewers/tabbed-side-by-side-move-viewer}
+(core/new-pmove (core/symbolic->board '[[r - k]
+                                        [- - -]
+                                        [R - K]])
+                {:type :R, :player 0, :pos [0 0]})
 ;;
 ;; ## Simple Tests
 ;; ### TBD
@@ -289,8 +310,7 @@
 ;; Get all possible Rook moves:
 (clerk/row
  (->>  (core/possible-pmoves a-random-game)
-       (filter (fn [pmove]
-                 (= :r (-> pmove :steps last :piece :type))))))
+       (filter (fn [pmove] (= :r (-> pmove :steps last :piece :type))))))
 
 
 #_(clerk/row  (->> (core/possible-pmoves a-random-game)

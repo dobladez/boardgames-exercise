@@ -101,6 +101,7 @@
 
 ;;
 ;; ## Moves
+;;
 ;; A move is comprised a list of (one or more) steps.
 ;;
 ;; While generating possible moves, a move is grown one step at a time. Here we
@@ -164,9 +165,6 @@
                           (assoc-in [:piece] to-piece))))))
 
 (defn pmove-capture-piece [pmove captured-pieces]
-  ;; TODO: FIX! captures should be at step level, not pmove
-  #_(assoc :captures piece)
-  ;; (update-in [:steps first :board :pieces] disj piece)
   (update-in pmove [:steps]
              (fn [steps]
                (let [first-step (-> steps first)]
@@ -176,6 +174,16 @@
                           (assoc :captures captured-pieces)
                           (update-in [:board :pieces]
                                      #(reduce disj % captured-pieces)))))))))
+
+#_ (defn pmove-capture-piece_NEW [pmove captured-pieces]
+  (let [last-steps-idx (-> pmove :steps count dec)]
+
+    (update-in pmove [:steps last-steps-idx]
+               (fn [last-step]
+                 (-> last-step
+                     (assoc :captures captured-pieces)
+                     (update-in [:board :pieces]
+                                #(reduce disj % captured-pieces)))))))
 
 (defn pmove-last-step-direction [pmove]
   (when (> (count (:steps pmove)) 1)
@@ -191,6 +199,9 @@
 
 (defn pmove-finish [pmove]
   (assoc pmove :finished? true))
+
+(defn pmove-finished? [pmove]
+  (:finished? pmove))
 
 
 
@@ -220,4 +231,4 @@
     :turn 0}))
 
 ;; TODO:
-(defn game-loop [rules-maybe])
+(defn game-loop [])
