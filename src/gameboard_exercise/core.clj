@@ -65,6 +65,135 @@
   (filter #(= (select-keys % (keys partial-piece)) partial-piece)
           (:pieces board)))
 
+(defn board->symbolic [board]
+  (let [rows  (:row-n board)
+        cols (:col-n board)
+        empty-board (vec (repeat rows (vec (repeat cols '-))))]
+    (->> (:pieces board)
+         (reduce (fn [board piece]
+                   (assoc-in board (reverse (:pos piece))
+                             (if (= 1 (:player piece))
+                               (symbol  (:type piece))
+                               (-> piece :type name upper-case symbol))))
+                 empty-board)
+         reverse
+         vec)))
+
+(defn symbolic->board [symbolic-board]
+  (let [pieces (->>
+                symbolic-board
+                reverse
+                (map-indexed
+                 (fn [row-idx row]
+                   (map-indexed
+                    (fn [col-idx square]
+                      (when-not (= square '-)
+                        (new-piece (-> square name lower-case keyword)
+                                   (if (= (name square) (upper-case (name square)))
+                                     0 1)
+                                   [col-idx row-idx])))
+                    row)))
+                flatten
+                (remove nil?))]
+    (new-board pieces (count symbolic-board) (count (first symbolic-board)))))
+
+
+
+;;
+;; ## Moves
+;; A move is comprised a list of (one or more) steps.
+;;
+;; While generating possible moves, a move is grown one step at a time. Here we
+;; refer to them as `pmoves`  (for "partial move").  A `pmove` that is not
+;; `:finished?` may be expanded with more steps until it becomes so.
+;;
+(defn new-pmove [board piece]
+  {:steps (list {:board board :piece piece :flags #{}})
+   :finished? false
+   :flags #{}})
+
+
+
+(defmulti continue-pmove-for-piece
+  "Given a pmove, return the next posible pmoves"
+  (fn [pmove]
+    (:type (:piece (first (:steps pmove))))))
+
+(defmethod continue-pmove-for-piece :default [_] '())
+
+(defn- pmove-outside-board? [pmove]
+  (let [last-step (first (:steps pmove))
+        {:keys [board piece]} last-step
+        pos (:pos piece)]
+    (or (some neg? pos)
+        (>= (first pos) (:col-n board))
+        (>= (second pos) (:row-n board)))))
+
+(defn possible-pmoves-for-piece
+  "Returns list of all valid (and finished) pmoves for a given piece"
+  ;; TODO: maybe remove recursion?
+  [base-pmove]
+  (let [p-moves (continue-pmove-for-piece base-pmove)]
+    (mapcat (fn [p-move]
+              (cond (pmove-outside-board? p-move) '()
+                    (:finished? p-move) (list p-move)
+                    :else (possible-pmoves-for-piece p-move)))
+            p-moves)))
+
+(defn possible-pmoves "Returns list of all valid (and finished) pmoves"
+  [game-state]
+
+  (let [board (:board game-state)]
+    (->> board
+         :pieces
+         (filter #(= (:turn game-state)
+                     (:player %)))
+         (mapcat #(possible-pmoves-for-piece (new-pmove board %))))))
+
+
+(defn- pmove-add-step [pmove update-fn]
+  (update-in pmove [:steps] (fn [steps] (conj steps (update-fn (first steps))))))
+
+(defn pmove-move-piece [pmove dir]
+  (pmove-add-step pmove
+                  (fn move-piece-step [step]
+                    (let [from-piece (:piece step)
+                          to-piece (move-piece from-piece dir)]
+                      (-> step
+                          (update-in [:board :pieces] replace-in-set from-piece to-piece)
+                          (assoc-in [:piece] to-piece))))))
+
+(defn pmove-capture-piece [pmove captured-pieces]
+  ;; TODO: FIX! captures should be at step level, not pmove
+  #_(assoc :captures piece)
+  ;; (update-in [:steps first :board :pieces] disj piece)
+  (update-in pmove [:steps]
+             (fn [steps]
+               (let [first-step (-> steps first)]
+                 (-> (drop 1 steps)
+                     (conj
+                      (-> first-step
+                          (assoc :captures captured-pieces)
+                          (update-in [:board :pieces]
+                                     #(reduce disj % captured-pieces)))))))))
+
+(defn pmove-last-step-direction [pmove]
+  (when (> (count (:steps pmove)) 1)
+    (let [[last-step prior-step] (:steps pmove)]
+      (mapv - (-> last-step :piece :pos) (-> prior-step :piece :pos)))))
+
+(defn pmove-on-same-player-piece? [pmove]
+  (let [first-step (-> pmove :steps last)
+        starting-board (:board first-step)
+        last-step (-> pmove :steps first)
+        piece (:piece last-step)]
+    (not (empty? (pieces-matching starting-board (select-keys piece [:player :pos]))))))
+
+(defn pmove-finish [pmove]
+  (assoc pmove :finished? true))
+
+
+
 ;;
 ;; ## Games
 ;;
@@ -90,154 +219,5 @@
     :board initial-board
     :turn 0}))
 
-;;
-;; ## Moves
-;; A move is comprised a list of (one or more) steps.
-;;
-;; While generating possible moves, a move is grown one step at a time. Here we
-;; refer to them as `pmoves`  (for "partial move").  A `pmove` that is not
-;; `:finished?` may be expanded with more steps until it becomes so.
-;;
-(defn new-pmove [board piece]
-  {:steps (list {:board board :piece piece :flags #{}})
-   :finished? false
-   :flags #{}})
-
-(defn- pmove-add-step [pmove update-fn]
-  (update-in pmove [:steps] (fn [steps] (conj steps (update-fn (first steps))))))
-
-(defn pmove-move-piece [pmove dir]
-  (pmove-add-step pmove
-                  (fn move-piece-step [step]
-                    (let [from-piece (:piece step)
-                          to-piece (move-piece from-piece dir)]
-                      (-> step
-                          (update-in [:board :pieces] replace-in-set from-piece to-piece)
-                          (assoc-in [:piece] to-piece))))))
-
-(defn pmove-capture-piece [pmove captured-pieces]
-  ;; TODO: FIX! captures should be at step level, not pmove
-  #_(assoc :captures piece)
-  ;; (update-in [:steps first :board :pieces] disj piece)
-  (update-in pmove [:steps]
-             (fn [steps]
-               (let [first-step (-> steps first)]
-                 (-> (drop 1 steps)
-                     (conj
-                      (-> first-step
-                          (assoc :captures captured-pieces)
-                          (update-in [:board :pieces] #(reduce disj % captured-pieces)))))))))
-
-(defn pmove-last-step-direction [pmove]
-  (when (> (count (:steps pmove)) 1)
-    (let [[last-step prior-step] (:steps pmove)]
-      (mapv - (-> last-step :piece :pos) (-> prior-step :piece :pos)))))
-
-(defn pmove-on-same-player-piece? [pmove]
-  (let [first-step (-> pmove :steps last)
-        starting-board (:board first-step)
-        last-step (-> pmove :steps first)
-        piece (:piece last-step)]
-    (not (empty? (pieces-matching starting-board (select-keys piece [:player :pos]))))))
-
-(defn pmove-finish [pmove]
-  (assoc pmove :finished? true))
-
-;; "Given a pmove, return the next posible pmoves"
-
-(defmulti continue-pmove-for-piece (fn [pmove]
-                                     (:type (:piece (first (:steps pmove))))))
-
-(defmethod continue-pmove-for-piece :default [_] '())
-
-(defn- pmove-outside-board? [pmove]
-  (let [last-step (first (:steps pmove))
-        {:keys [board piece]} last-step
-        pos (:pos piece)]
-    (or (some neg? pos)
-        (>= (first pos) (:col-n board))
-        (>= (second pos) (:row-n board)))))
-
-(defn possible-pmoves-for-piece
-  "Returns list of all valid (and finished) pmoves for a given piece"
-  [base-pmove]
-  (let [p-moves (continue-pmove-for-piece base-pmove)]
-    (mapcat (fn [p-move]
-              (cond (pmove-outside-board? p-move) '()
-                    (:finished? p-move) (list p-move)
-                    :else (possible-pmoves-for-piece p-move)));; TODO: maybe remove recursion?
-            p-moves)))
-
-(defn possible-pmoves "Returns list of all valid (and finished) pmoves"
-  [game-state]
-
-  (let [board (:board game-state)]
-    (->> board
-         :pieces
-         (filter #(= (:turn game-state)
-                     (:player %)))
-         (mapcat #(possible-pmoves-for-piece (new-pmove board %))))
-
-    #_(mapcat (fn [piece]
-                (possible-pmoves-for-piece (new-pmove board piece)))
-              (filter #(= turn (:player %)) (:pieces board)))))
-
-(defn OLD_board->symbolic [board]
-  (let [rows  (:row-n board)
-        cols (:col-n board)
-        empty-board (vec (repeat rows (vec (repeat cols :-))))]
-    (->> (:pieces board)
-         (reduce (fn [board piece]
-                   (assoc-in board (reverse (:pos piece))
-                             (if (= 1 (:player piece))
-                               (:type piece)
-                               (-> piece :type name upper-case keyword))))
-                 empty-board)
-         reverse
-         vec)))
-
-(defn board->symbolic [board]
-  (let [rows  (:row-n board)
-        cols (:col-n board)
-        empty-board (vec (repeat rows (vec (repeat cols '-))))]
-    (->> (:pieces board)
-         (reduce (fn [board piece]
-                   (assoc-in board (reverse (:pos piece))
-                             (if (= 1 (:player piece))
-                               (symbol  (:type piece))
-                               (-> piece :type name upper-case symbol))))
-                 empty-board)
-         reverse
-         vec)))
-
-(defn OLD_symbolic->board [symbolic-board]
-  (let [pieces (remove nil?
-                       (flatten
-                        (map-indexed (fn [row-idx row]
-                                       (map-indexed (fn [col-idx square]
-                                                      (when-not (= square :-)
-                                                        (new-piece (-> square name lower-case keyword)
-                                                                   (if (= (name square) (upper-case (name square)))
-                                                                     0 1)
-                                                                   [col-idx row-idx])))
-                                                    row))
-                                     (reverse symbolic-board))))]
-    (new-board pieces (count symbolic-board) (count (first symbolic-board)))))
-
-(defn symbolic->board [symbolic-board]
-  (let [pieces (remove nil?
-                       (flatten
-                        (map-indexed (fn [row-idx row]
-                                       (map-indexed (fn [col-idx square]
-                                                      (when-not (= square '-)
-                                                        (new-piece (-> square name lower-case keyword)
-                                                                   (if (= (name square) (upper-case (name square)))
-                                                                     0 1)
-                                                                   [col-idx row-idx])))
-                                                    row))
-                                     (reverse symbolic-board))))]
-    (new-board pieces (count symbolic-board) (count (first symbolic-board)))))
-
-
-
-#_(defn game-loop [rules-maybe])
+;; TODO:
+(defn game-loop [rules-maybe])

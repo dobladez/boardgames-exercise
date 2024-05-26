@@ -1,6 +1,6 @@
 (ns user
   (:require [nextjournal.clerk :as clerk]
-            [flow-storm.api :as fs-api]))
+            #_[flow-storm.api :as fs-api]))
 
 (defn start!
   "Starts a Clerk server process "
@@ -54,5 +54,5 @@
   (add-tap #'portal.api/submit)
 
   ;; flowstorm
-  (fs-api/local-connect)
+  #_ (fs-api/local-connect)
   )

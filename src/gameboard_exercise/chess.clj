@@ -8,16 +8,11 @@
             [gameboard-exercise.core :as core :refer [dir-up dir-down dir-left dir-right dir-up-left
                                                       dir-up-right dir-down-left dir-down-right]]))
 
-(clerk/add-viewers! [viewers/board-viewer])
+{::clerk/visibility {:code :show :result :hide}
+ ::clerk/auto-expand-results? true
+ ::clerk/budget 1000}
 
-(def __initial-chess-symbolic-board [[:r :n :b :q :k :b :n :r]
-                                   [:p :p :p :p :p :p :p :p]
-                                   [:- :- :- :- :- :- :- :-]
-                                   [:- :- :- :- :- :- :- :-]
-                                   [:- :- :- :- :- :- :- :-]
-                                   [:- :- :- :- :- :- :- :-]
-                                   [:P :P :P :P :P :P :P :P]
-                                   [:R :N :B :Q :K :B :N :R]])
+#_ (clerk/add-viewers! [viewers/board-viewer])
 
 (def initial-chess-symbolic-board '[[r n b q k b n r]
                                     [p p p p p p p p]
@@ -28,13 +23,12 @@
                                     [P P P P P P P P]
                                     [R N B Q K B N R]])
 
-^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (defn initiate-chess-board []
   (core/symbolic->board initial-chess-symbolic-board))
 
 (defn initiate-fisher-chess-board []
   (let [first-row (shuffle (first initial-chess-symbolic-board))
-        last-row (->> first-row (map upper-case-keyword) reverse vec)]
+        last-row (->> first-row (mapv upper-case-keyword))]
     (-> initial-chess-symbolic-board
         (assoc 0 first-row)
         (assoc 7 last-row)
@@ -76,28 +70,6 @@
                         (remove core/pmove-on-same-player-piece?))]
     (concat new-pmoves (map core/pmove-finish new-pmoves))))
 
-;;
-;; Rook v2 (WIP
-;;
-
-
-;; possible combinators:
-;; 1. move piece in given direction:  pmove -> [pmove]
-;; 2. 2nd+ steps on same direction :  pmove -> pmove | nil (or [pmove] -> [pmove])
-;; 3. stop on same-player piece (obstruction):  pmove -> pmove | nil (or [pmove] -> [pmove])
-;; 4. stop on board edge :  pmove -> pmove | nil (or [pmove] -> [pmove])
-;; 5. capture on opponent piece :  pmove -> pmove
-;; 6. capture on en passant :  pmove -> pmove
-;; 7. promotion :  pmove -> pmove
-;; 8. castling :  pmove -> pmove
-;; 9. check :  pmove -> pmove
-;; 10. checkmate :  pmove -> pmove
-;; 11. stalemate :  pmove -> pmove
-
-
-;; (defn pmove-move-piece-dirs [dirs pmove]
-;;   (map (partial core/pmove-move-piece pmove) dirs))
-
 (defn pmove-move-piece-same-dir [possible-dirs pmove]
   (let [previous-dir (core/pmove-last-step-direction pmove)
         next-dirs (if previous-dir (list previous-dir) possible-dirs)]
@@ -133,36 +105,79 @@
 
 ;;
 ;; Ideas of combinators:
-;;
-;; (pmove-expand-alt
-;;        (pmove-expand-if-first-step dirs)
-;;        (pmove-expand-on-same-direction))
-;;
-;; (remove (some-fn
-;;;          pmove-on-same-player-piece?
-;;           pmove-outside-board?
-;;           in-check?)) ; <- for King
 
+(comment
+
+  (pmove-expand-alt
+   (pmove-expand-if-first-step dirs)
+   (pmove-expand-on-same-direction))
+
+  (remove (some-fn
+           pmove-on-same-player-piece?
+           pmove-outside-board?
+           in-check?)))
+
+(comment
 ;;
 ;; Pattern:
-;;   1. expand: pmove -> [pmove]
-;;   2. filter: [pmove] -> [pmove] (remove some pmoves)
-;;   3. enrich: [pmove] -> [pmove] (update it with additional info/flags/captured pieces)
+;;   1. generate moves (expand): pmove -> [pmove]
+;;   2. discard moves (shrink, filter): [pmove] -> [pmove] (remove some pmoves)
+;;   3. enrich: [pmove] -> [pmove] (update it with additional info/flags/captured pieces+)
 ;;   4. finish: [pmove] -> [pmove] (might expand)
 ;;
-(defmethod core/continue-pmove-for-piece :r [pmove]
-  (->> #_ (pmove-expand-if-first-step dirs) ;; expander
-       #_ (pmove-expand-on-same-direction)
+;; So, maybe we have move-generators,  move-filters, move-enrichers, move-finishers?
 
-       #_ (if (pmove-first-step? pmove)
-            (pmove-move-piece-dirs pmove dirs)
-            (pmove-move-piece-same-dir pmove))
-       (pmove-move-piece-same-dir rook-dirs pmove)
+  ;; Rook v2 ideas
+  (-> pmove
+      (compose-pmove-gens
+       (gen-pmoves-simple-dirs rook-dirs))
+      (filter-pmoves #_filter-pmoves-occupied-same-player-piece
+                     filter-pmoves-outside-board
+                     filter-pmoves-in-check ;; this could be generic for all chess moves))
+
+;; Pawn v2 ideas
+  (-> pmove
+      (compose-pmove-gens
+       #_(gen-pmoves-simple-dirs up-dir :empty :opponent) ;; dir from players' view
+       (gen-pmoves-simple-dirs up-dir) ;; dir from players' view
+       #_(gen-pmoves-capture-dirs dir-fwd))
+
+      (filter-pmoves #_filter-pmoves-occupied-same-player-piece
+       filter-pmoves-outside-board
+                     filter-pmoves-in-check ;; this could be generic for all chess moves
+                     )))))
+
+;; possible combinators:
+;; 1. move piece in given direction:  pmove -> [pmove]
+;; 2. 2nd+ steps on same direction :  pmove -> pmove | nil (or [pmove] -> [pmove])
+;; 3. stop on same-player piece (obstruction):  pmove -> pmove | nil (or [pmove] -> [pmove])
+;; 4. stop on board edge :  pmove -> pmove | nil (or [pmove] -> [pmove])
+;; 5. capture on opponent piece :  pmove -> pmove
+;; 6. capture on en passant :  pmove -> pmove
+;; 7. promotion :  pmove -> pmove
+;; 8. castling :  pmove -> pmove
+;; 9. check :  pmove -> pmove
+;; 10. checkmate :  pmove -> pmove
+;; 11. stalemate :  pmove -> pmove
+
+;; (defn pmove-move-piece-dirs [dirs pmove]
+;;   (map (partial core/pmove-move-piece pmove) dirs))
+
+;;
+(defmethod core/continue-pmove-for-piece :r [pmove]
+  (->> #_(pmove-expand-if-first-step dirs) ;; expander
+   #_(pmove-expand-on-same-direction)
+
+   #_(if (pmove-first-step? pmove)
+       (pmove-move-piece-dirs pmove dirs)
+       (pmove-move-piece-same-dir pmove))
+   (pmove-move-piece-same-dir rook-dirs pmove)
        (remove core/pmove-on-same-player-piece?)
        ;; TODO finish at other player piece (capture)
        (map pmoves-finish-capturing-opponent-piece)
        (pmoves-finish-at-one-or-more-steps)) ;; vs pmoves-finish-at-one-step ?
   )
+
 
 
 

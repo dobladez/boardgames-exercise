@@ -166,7 +166,7 @@
 
 ;; ## Visualizing our domain
 
-;; Let's use a specialized viewer to visualize our boards:
+;; Let's write and use a specialized viewer to visualize our boards:
 ^{::clerk/viewer viewers/side-by-side-board-viewer}
 (core/empty-board 3 3)
 
@@ -230,20 +230,27 @@
 ;; row, and the last row must be its mirror, so that both players start from an "equal" position:
 ^{::clerk/viewer viewers/tabbed-board-viewer}
 (let [first-row (shuffle (first symboard))
-      last-row (->> first-row reverse (mapv utils/upper-case-keyword))]
+      last-row (->> first-row (mapv utils/upper-case-keyword))]
   (-> symboard
       (assoc 0 first-row)
       (assoc (dec (count symboard)) last-row)
       core/symbolic->board))
 
-
-
 ;; ## Generating (valid) moves
 ;; ### TBD
-
+;; OK. This is the core problem of this domain: How to decide which moves are valid?
+;;
+;; I find it's better to model the problem as that of generating valid
+;; moves. So, the question becomes: How to generate all valid moves?
+;;
+;; In the case of chess, the valid moves for a piece depend on its type. So
+;; we'd like to have a way to code the move-generation logic independently for
+;; each piece type. Some of them share similar moves (diagonals, orthogonal,
+;; cannot go over other pieces, etc.), so it'd be nice to code this "behaviors"
+;; separately and combine them to define the final piece types.
+;;
 ;; ## Simple Tests
 ;; ### TBD
-
 
 
 
@@ -254,16 +261,16 @@
 (def game-1 (core/start-game chess/chess-game))
 
 ;; Get me all possible moves...
-(count (core/possible-pmoves game-1))
+          (count (core/possible-pmoves game-1))
 
 ;; Let's take a look at a couple of moves returned:
-^{::clerk/viewer clerk-viewer/map-viewer
-  ::clerk/auto-expand-results? true}
-(first (core/possible-pmoves game-1))
+        ^{::clerk/viewer clerk-viewer/map-viewer
+          ::clerk/auto-expand-results? true}
+        (first (core/possible-pmoves game-1))
 
-^{::clerk/viewer clerk-viewer/map-viewer
-  ::clerk/auto-expand-results? true}
-(second (core/possible-pmoves game-1))
+      ^{::clerk/viewer clerk-viewer/map-viewer
+        ::clerk/auto-expand-results? true}
+      (second (core/possible-pmoves game-1))
 
 ;; So, a move contains a list of `:steps`. Each step includes the piece it
 ;; applies to and a snapshot of the board. The very first step is the initial board.
@@ -272,8 +279,8 @@
 ;; into the implementation of `core/possible-moves`.
 
 ;; Let's sort all the possible moves by piece x-coordinate, and show them visually:
-(clerk/row (sort-by #(-> % :steps first :piece :pos first)
-                    (core/possible-pmoves game-1)))
+    (clerk/row (sort-by #(-> % :steps first :piece :pos first)
+                        (core/possible-pmoves game-1)))
 
 ;; Just for kicks, let's start off the random board create above
 (def a-random-game
