@@ -1,10 +1,10 @@
 ;; # Core domain:  Primitives to represent grid board games
 
 ^{:nextjournal.clerk/visibility {:code :hide}}
-(ns gameboard-exercise.core
+(ns boardgames.core
   (:require [nextjournal.clerk :as clerk]
             [clojure.string :refer [lower-case upper-case]]
-            [gameboard-exercise.utils :as utils :refer [replace-in-set]]))
+            [boardgames.utils :as utils :refer [replace-in-set]]))
 
 {::clerk/visibility {:code :show :result :hide}
  ::clerk/auto-expand-results? true
@@ -49,7 +49,7 @@
   (with-meta {:pieces (set pieces)
               :row-n row-n
               :col-n col-n}
-    {:tag :gameboard}))
+    {:tag :boardgames}))
 
 (defn opponent [player]
   (if (= 0 player) 1 0))

@@ -1,9 +1,8 @@
-(ns gameboard-exercise.simple-test
+(ns boardgames.simple-test
   (:require [clojure.test :refer [deftest is]]
-            [gameboard-exercise.utils :as utils :refer [ttap>]]
-            [gameboard-exercise.core :as core]
-            [gameboard-exercise.chess :as chess]
-            ))
+            [boardgames.utils :as utils :refer [ttap>]]
+            [boardgames.core :as core]
+            [boardgames.chess :as chess]))
 
 
 (deftest example-test

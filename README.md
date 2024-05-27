@@ -1,11 +1,11 @@
-# dobladez/gameboard-exercise2
+# dobladez/boardgames
 
 [![License][license]][license-url]
 
 FIXME: Clerk notebook template docstring.
 
 This project is powered by Clerk. Your first notebook lives at
-`src/dobladez/gameboard_exercise2.clj`.
+`src/dobladez/boardgames.clj`.
 
 ## Dependencies
 
@@ -43,7 +43,7 @@ Then start the server:
 To show a file, pass it to `clerk/show!`:
 
 ```clj
-(clerk/show! "src/dobladez/gameboard_exercise2.clj")
+(clerk/show! "src/dobladez/boardgames.clj")
 ```
 
 These commands work because dev/user.clj requires `nextjournal.clerk` under a
@@ -69,7 +69,7 @@ Create a repo at https://github.com/new.
 
 The easiest way to share a static build is to push to GitHub, then visit
 
-https://github.clerk.garden/dobladez/gameboard-exercise2
+https://github.clerk.garden/dobladez/boardgames2
 
 
 ### GitHub Pages

@@ -13,13 +13,13 @@
     org.slf4j/slf4j-nop {:mvn/version "1.7.36"}
     djblue/portal       {:mvn/version "0.48.0"} }
    :jvm-opts ["-Dclojure.storm.instrumentEnable=true"
-              "-Dclojure.storm.instrumentOnlyPrefixes=gameboard-exercise,nextjournal.clerk"]}
+              "-Dclojure.storm.instrumentOnlyPrefixes=boardgames,nextjournal.clerk"]}
 
 
   ;; This alias is used by https://clerk.garden/.
   :nextjournal/clerk
   {:exec-fn nextjournal.clerk/build!
-   :exec-args {:paths    ["src/**"]
+   :exec-args {:paths    ["notebooks/*" "src/**"]
                :out-path "public"}}
 
   :watch

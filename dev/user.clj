@@ -30,7 +30,7 @@
   (nextjournal.clerk/show! 'gameboard)
   (nextjournal.clerk/show! 'nextjournal.clerk.tap)
 
-  (clerk/show! 'gameboard)
+  (clerk/show! 'boardgames)
 
   (comment
   ;; - `:bundle`      - if true results in a single self-contained html file including inlined images
@@ -42,7 +42,7 @@
   ;; - `:git/sha`, `:git/url` - when both present, each page displays a link to `(str url \"blob\" sha path-to-notebook)`
     )
   (clerk/build! {:paths ["notebooks/*"]
-                 :index "notebooks/gameboard.clj"
+                 :index "notebooks/boardgames.clj"
                  :ssr true
                  #_#_:compile-css true})
 

@@ -1,11 +1,10 @@
 
 ;; # Checkers/Draughts
 ^{:nextjournal.clerk/visibility {:code :hide}}
-(ns gameboard-exercise.checkers
+(ns boardgames.checkers
   (:require [nextjournal.clerk :as clerk]
-            [gameboard-exercise.clerk-viewers :as viewers]
-            [gameboard-exercise.core :as core]
-            ))
+            [boardgames.clerk-viewers :as viewers]
+            [boardgames.core :as core]))
 
 ^{:nextjournal.clerk/visibility {:code :hide :result :hide }}
 (clerk/add-viewers! [viewers/board-viewer])

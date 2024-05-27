@@ -1,17 +1,17 @@
 ^{:nextjournal.clerk/visibility {:code :hide :result :show}}
-(ns gameboard
+(ns walkthru
   {:nextjournal.clerk/toc true}
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as clerk-viewer]
-            [gameboard-exercise.clerk-viewers :as viewers]
-            [gameboard-exercise.core :as core]
-            [gameboard-exercise.chess :as chess]
-            ;;            [gameboard-exercise.checkers :as checkers]
-            [gameboard-exercise.utils :as utils]))
-
-;; # Exercise: modeling grid-board games
+            [boardgames.clerk-viewers :as viewers]
+            [boardgames.core :as core]
+            [boardgames.chess :as chess]
+            ;;            [boardgames.checkers :as checkers]
+            [boardgames.utils :as utils]))
+;;
+;; # Exercise in modeling grid-board games
 ;;
 ;; Inspired by chapter 2.4 "Abstracting a Domain" from "Software Design for
 ;; Flexibility" (by Chris Hanson and Gerald Jay Sussman), we aim to create a

@@ -1,4 +1,4 @@
-(ns gameboard-exercise.utils (:require [clojure.string :as str]))
+(ns boardgames.utils (:require [clojure.string :as str]))
 
 
 (defn seek

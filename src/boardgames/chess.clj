@@ -1,11 +1,11 @@
 
 ;; # Chess
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
-(ns gameboard-exercise.chess
-  (:require [gameboard-exercise.utils :refer [upper-case-keyword ttap>]]
+(ns boardgames.chess
+  (:require [boardgames.utils :refer [upper-case-keyword ttap>]]
             [nextjournal.clerk :as clerk]
-            [gameboard-exercise.clerk-viewers :as viewers]
-            [gameboard-exercise.core
+            [boardgames.clerk-viewers :as viewers]
+            [boardgames.core
              :as core
              :refer [dir-up dir-down dir-left dir-right dir-up-left
                      dir-up-right dir-down-left dir-down-right]]))

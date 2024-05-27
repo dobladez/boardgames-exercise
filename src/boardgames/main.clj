@@ -1,8 +1,8 @@
 ;; # Example of "Stratified Design"
 ^{:nextjournal.clerk/visibility {:code :hide}}
-(ns gameboard-exercise.main
+(ns boardgames.main
   (:require [nextjournal.clerk :as clerk]
-            [gameboard-exercise.clerk-viewers :as viewers]))
+            [boardgames.clerk-viewers :as viewers]))
 
 ;;
 
@@ -14,7 +14,7 @@
   ;; TODO: validate board-pieces dimensions?
   (with-meta
     board-pieces
-    {:tag :gameboard } ))
+    {:tag :boardgames}))
 
 (defn initial-chess-board []
   (new-board

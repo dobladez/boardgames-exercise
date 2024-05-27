@@ -1,10 +1,10 @@
 ;; # Game board viewer for Clerk
 ^{:nextjournal.clerk/visibility {:code :hide}}
-(ns gameboard-exercise.clerk-viewers
+(ns boardgames.clerk-viewers
   (:require [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as clerk-viewer]
-            [gameboard-exercise.core :as core]
-            [gameboard-exercise.utils :as utils :refer [ttap>]]))
+            [boardgames.core :as core]
+            [boardgames.utils :as utils :refer [ttap>]]))
 
 (def ^:private board-render-fn
 
@@ -14,7 +14,7 @@
            capture-pos (:pos (first captures))
            piece-to-icon '{r ♜ n ♞ b ♝ q ♛ k ♚ p ♟ R ♜ N ♞ B ♝ Q ♛ K ♚ P ♟}
            captures-icon (some-> captures first :type name symbol piece-to-icon)]
-       [:div
+       [:div#board-viewer
         [:div.inline-grid {:style {:grid-template-columns (str "repeat(" col-count ", 1fr)")
                                    :grid-template-rows (str "repeat(" row-count ", 1fr)")
                                    :gap 0
@@ -25,7 +25,7 @@
            (->> board (map-indexed (fn [inverse-row-idx row]
                                      (->> row
                                           (map-indexed (fn [col-idx square*]
-                                                         (let [square square* #_ (str square*)
+                                                         (let [square square* #_(str square*)
                                                                row-idx (dec (- row-count inverse-row-idx))
                                                                col-idx col-idx
                                                                player-n (if (= (name square)
@@ -57,7 +57,7 @@
 (def board-viewer
   {:name `board-viewer
    ;; :pred (fn [board] (= (-> board meta :tag)
-   ;;                      :gameboard))
+   ;;                      :boardgames))
    :transform-fn
    (comp clerk/mark-presented (clerk/update-val  (fn [board]
                                                    (let [board (core/board->symbolic board)
@@ -81,7 +81,6 @@
                          [:P :P :P :P :P :P :P :P]
                          [:R :N :B :Q :K :B :N :R]]))
 
-
 (defn new-tabbed-viewer [viewers-map]
   {:transform-fn (comp clerk/mark-preserve-keys
                        (clerk/update-val (fn [val]
@@ -93,48 +92,18 @@
                                                          viewers-map)))))
    :render-fn '(fn [label->val]
                  (reagent.core/with-let [!selected-label (reagent.core/atom (ffirst label->val))]
-                   [:div.flex.justify-start
-                    [:div {:class "transition-[height]"}
-                     (into
-                      [:div.flex.items-center.font-sans.text-xs.mb-3
-                       [:span.text-slate-500.mr-2 "View As:"]]
-                      (map (fn [label]
-                             [:button.px-3.py-1.font-medium.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.transition
-                              {:class (if (= @!selected-label label) "bg-indigo-100 text-indigo-600" "text-slate-500")
-                               :on-click #(reset! !selected-label label)}
-                              label]))
-                      (keys label->val))
-                     [:div.transition-all.transition.duration-300.ease-in-out
-                      [nextjournal.clerk.render/inspect-presented (get label->val @!selected-label)]]]]))})
-
-(defn new-tabbed-viewer-animated-WIP [viewers-map]
-  {:transform-fn (comp clerk/mark-preserve-keys
-                       (clerk/update-val (fn [val]
-                                           (into {} (map (fn [[k viewer]]
-                                                           [k (clerk/with-viewer viewer {:nextjournal.clerk/auto-expand-results? true} val)])
-                                                         viewers-map)))))
-   :render-fn '(fn [label->val]
-                 (reagent.core/with-let [!selected-label (reagent.core/atom (ffirst label->val))]
-                   [:div.flex-col
-                    [:div.flex.justify-center
-                     [:div {:class "transition-[height]"}
-                      (into
-                       [:div.flex.items-center.font-sans.text-xs.mb-3
-                        [:span.text-slate-500.mr-2 "View As:"]]
-                       (map (fn [label]
-                              [:button.px-3.py-1.font-medium.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.transition
-                               {:class (if (= @!selected-label label) "bg-indigo-100 text-indigo-600" "text-slate-500")
-                                :on-click #(reset! !selected-label label)}
-                               label]))
-                       (keys label->val))]]
-                    [:div.flex.justify-center
-                     [:div.relative
-                      (map (fn [[label val]]
-                             [:div.relative.top-0.left-0.transition-opacity.transition.duration-300.ease-in-out
-                              {:class (if (= label @!selected-label) "opacity-100" "opacity-0")}
-                              [nextjournal.clerk.render/inspect-presented val]])
-                           label->val)]]]))})
-
+                   [:div.overflow-auto
+                    (into
+                     [:div.flex.items-center.font-sans.text-xs.mb-3
+                      [:span.text-slate-500.mr-2 "View As:"]]
+                     (map (fn [label]
+                            [:button.px-3.py-1.font-medium.hover:bg-indigo-50.rounded-full.hover:text-indigo-600
+                             {:class (if (= @!selected-label label) "bg-indigo-100 text-indigo-600" "text-slate-500")
+                              :on-click #(reset! !selected-label label)}
+                             label]))
+                     (keys label->val))
+                    [:div
+                     [nextjournal.clerk.render/inspect-presented (get label->val @!selected-label)]]]))})
 
 (def tabbed-board-viewer (new-tabbed-viewer {"Board" board-viewer
                                              "Data" clerk-viewer/map-viewer}))
@@ -224,7 +193,7 @@ test-board
 
 (def chess-board-viewer
   {:pred (fn [board] (= (-> board meta :tag)
-                        :gameboard))
+                        :boardgames))
    :transform-fn (clerk/update-val
                   (fn [board]
                     #_(tap> board)
