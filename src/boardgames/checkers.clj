@@ -1,31 +1,27 @@
 
 ;; # Checkers/Draughts
-^{:nextjournal.clerk/visibility {:code :hide}}
 (ns boardgames.checkers
   (:require [nextjournal.clerk :as clerk]
             [boardgames.clerk-viewers :as viewers]
             [boardgames.core :as core]))
 
-^{:nextjournal.clerk/visibility {:code :hide :result :hide }}
-(clerk/add-viewers! [viewers/board-viewer])
+{::clerk/visibility {:code :show :result :hide}}
 
-;; An empty "checkers" board (actually, International Draughts, 10x10)
-(core/empty-board 10 10)
+(def initial-checkers-symbolic-board '[[o - o - o - o - o -]
+                                       [- o - o - o - o - o]
+                                       [o - o - o - o - o -]
+                                       [- o - o - o - o - o]
+                                       [- - - - - - - - - -]
+                                       [- - - - - - - - - -]
+                                       [- O - O - O - O - O]
+                                       [O - O - O - O - O -]
+                                       [- O - O - O - O - O]
+                                       [O - O - O - O - O -]])
 
-;; Intitial board
-^{:nextjournal.clerk/visibility {:code :show :result :hide }}
 (defn initial-checkers-board []
-  (core/new-board
-   [[\p \- \p \- \p \- \p \- \p \-]
-    [\- \p \- \p \- \p \- \p \- \p]
-    [\p \- \p \- \p \- \p \- \p \-]
-    [\- \p \- \p \- \p \- \p \- \p]
-    [\- \- \- \- \- \- \- \- \- \-]
-    [\- \- \- \- \- \- \- \- \- \-]
-    [\- \P \- \P \- \P \- \P \- \P]
-    [\P \- \P \- \P \- \P \- \P \-]
-    [\- \P \- \P \- \P \- \P \- \P]
-    [\P \- \P \- \P \- \P \- \P \-]]
-   ))
+  (core/symbolic->board initial-checkers-symbolic-board))
 
-(def board1 (initial-checkers-board))
+;; Example initial board:
+^{::clerk/visibility {:code :show :result :show}
+  ::clerk/viewer viewers/board-viewer}
+(def -initial-checkers-board (initial-checkers-board))
