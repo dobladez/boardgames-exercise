@@ -264,12 +264,11 @@
 
 ;; ## Moving pieces
 
-;; This is the core problem of this domain: How to decide which moves are valid?
+;; This is the core problem of this domain: How to decide which moves are
+;; valid?. Actually, it's better to model the problem as that of generating
+;; valid moves. So, the question becomes:
 ;;
-;; It's better to model the problem as that of generating valid moves. So, the
-;; question becomes:
-;;
-;; _How to generate all valid moves given a board possition?_
+;; > _How do we generate all valid moves given a board possition?_
 ;;
 ;; In the case of chess, the valid moves for a piece depend on its type. So we'd
 ;; like to have a way to code the move-generation logic independently for each
@@ -283,17 +282,18 @@
 ;;
 ;; Before we dig into how to generate the moves, let's see how we'll represent such moves.
 ;;
-;; We model a move as list of (one or more) steps. Each step includes the piece
+;; We model a move as a list of (one or more) _steps_. Each step includes the piece
 ;; it affects and the resulting board state. The very first step represents the
 ;; board position at the start of this move.
 ;;
-;; While generating possible moves, a move is _grown_ (or _expanded_) one step
-;; at a time. Here we refer to them as `pmoves` (for "partial moves").  A
-;; `pmove` that is not `:finished?` may be expanded with more steps until it
-;; is either discarded (no valid options) or it becomes `:finished?`.
+;; While generating possible moves, a move is grown (or _expanded_) one step at
+;; a time, forming a tree. We'll refer to them as `pmoves` (for "partial
+;; moves").  A `pmove` that is not `:finished?` may be expanded with more steps
+;; until it is either discarded (a dead-end, with no valid options) or it
+;; becomes `:finished?`.
 ;;
-;; Let's create an initial `pmove`, still in the making, for the Rook in
-;; position `[0 0]` (using a small board here to keep the noise low):
+;; Let's create an initial `pmove`, for the Rook in position `[0 0]` (using a
+;; small board here to keep the noise low):
 ;;
 ^{::clerk/viewer viewers/side-by-side-move-viewer}
 (core/new-pmove (core/symbolic->board '[[r - k]
@@ -302,9 +302,10 @@
                 {:type :R, :player 0, :pos [0 0]})
 
 ;; That's a new partial-move, containing only its starting board (step zero),
-;; and thus it is obviously not `:finished`. The move-generation functions take this pmove
-;; and return a collection of new pmoves, each with an extra step, until we
-;; exhaust all options and we keep the `:finished` ones only.
+;; and thus it is (obviously) not `:finished`. The move-generation functions
+;; take this pmove and return a collection of (zero or more) new pmoves, each
+;; with an extra step, until we exhaust all options and we keep the `:finished`
+;; ones.
 ;;
 ;; Here's an example of one of the final generated moves for the rook above:
 ^{::clerk/visibility {:code :show :result :show}
