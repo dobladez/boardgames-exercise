@@ -68,6 +68,9 @@
          reverse
          vec)))
 
+(defn upper-case? [kw]
+ (= (name kw) (upper-case (name kw))))
+
 (defn symbolic->board [symbolic-board]
   (let [pieces (->>
                 symbolic-board
@@ -78,7 +81,7 @@
                     (fn [col-idx square]
                       (when-not (= square '-)
                         (new-piece (-> square name lower-case keyword)
-                                   (if (= (name square) (upper-case (name square)))
+                                   (if (upper-case? square)
                                      0 1)
                                    [col-idx row-idx])))
                     row)))
@@ -92,6 +95,19 @@
 (defn pieces-matching [board partial-piece]
   (filter #(= (select-keys % (keys partial-piece)) partial-piece)
           (:pieces board)))
+
+(defn pmove-player [pmove]
+  (-> pmove :steps first :piece :player))
+
+(defn opponent-player [player]
+  (if (= 0 player) 1 0))
+
+(defn adjust-dir-to-player [player dir]
+  (if (= 0 player)
+    dir
+    (let [[x y] dir]
+      [x (- y)])))
+
 
 ;;
 ;; ## Moves
@@ -107,7 +123,7 @@
    :finished? false
    :flags #{}})
 
-(defn- pmove-outside-board? [pmove]
+(defn pmove-outside-board? [pmove]
   (let [last-step (first (:steps pmove))
         {:keys [board piece]} last-step
         pos (:pos piece)]
@@ -209,6 +225,14 @@
     (let [[last-step prior-step] (:steps pmove)]
       (mapv - (-> last-step :piece :pos) (-> prior-step :piece :pos)))))
 
+(defn pmove-on-other-player-piece? [pmove]
+  (let [first-step (-> pmove :steps last)
+        starting-board (:board first-step)
+        last-step (-> pmove :steps first)
+        piece (:piece last-step)]
+    (not (empty? (pieces-matching starting-board {:player (opponent-player (:player piece))
+                                                  :pos (:pos piece)})))))
+
 (defn pmove-on-same-player-piece? [pmove]
   (let [first-step (-> pmove :steps last)
         starting-board (:board first-step)
@@ -216,14 +240,23 @@
         piece (:piece last-step)]
     (not (empty? (pieces-matching starting-board (select-keys piece [:player :pos]))))))
 
+(defn pmove-over-max-steps?? [max]
+  (fn pmove-over-max-steps? [pmove] (> (dec (count (:steps pmove))) max)))
+
+
+
 (defn pmove-finish [pmove]
   (assoc pmove :finished? true))
 
 (defn pmove-finished? [pmove]
   (:finished? pmove))
 
-(defn opponent [player]
-  (if (= 0 player) 1 0))
+(defn pmove-piece-initial-move? [pmove]
+  (not (-> pmove :steps last :piece (piece-flag? :moved))))
+
+
+(defn switch-turn [game-state]
+  (update game-state :turn opponent-player))
 
 ;;
 ;; ## Games
