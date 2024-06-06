@@ -1,15 +1,14 @@
 {:paths ["src" "notebooks" "dev"]
- :deps { #_#_
-        org.clojure/clojure {:mvn/version "1.11.1"}
-        io.github.nextjournal/clerk
-        {:git/tag "v0.15.957" :git/sha "9c38ff3ef240c9bd21e596792adb2ebdbb5a738d"}}
+ :deps { #_#_ org.clojure/clojure {:mvn/version "1.11.1"}
+         io.github.nextjournal/clerk {:git/tag "v0.15.957" :git/sha "9c38ff3ef240c9bd21e596792adb2ebdbb5a738d"}
+        #_#_io.github.nextjournal/clerk {:git/sha "ee0248bbc1054476e781e25b11414fa9899050b9"}}
  :aliases
  {:dev
   {;; for disabling the official compiler (to use flow-storm):
    :classpath-overrides {org.clojure/clojure nil}
    :extra-deps
-   {com.github.flow-storm/clojure {:mvn/version "1.12.0-alpha11"}
-    com.github.flow-storm/flow-storm-dbg {:mvn/version "3.15.3"}
+   {com.github.flow-storm/clojure {:mvn/version "1.12.0-alpha12"}
+    com.github.flow-storm/flow-storm-dbg {:mvn/version "3.15.5"}
     org.slf4j/slf4j-nop {:mvn/version "1.7.36"}
     djblue/portal       {:mvn/version "0.48.0"} }
    :jvm-opts ["-Dclojure.storm.instrumentEnable=true"

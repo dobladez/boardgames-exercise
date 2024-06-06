@@ -54,5 +54,5 @@
   (add-tap #'portal.api/submit)
 
   ;; flowstorm
-  #_ (fs-api/local-connect)
+  (flow-storm.api/local-connect)
   )
