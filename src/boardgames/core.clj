@@ -31,8 +31,8 @@
       (assoc :pos (mapv + (:pos piece) dir-offsets))
       (flag-piece :moved)))
 
-;; We use tuples of col and row offsets to represent directions. Here we give
-;; some common ones a name
+;; We use tuples of [column row] offsets to represent "directions". Here we give
+;; some common ones a name. Note: they are allowed to be more than 1 maybe
 (def dir-up [0 1])
 (def dir-down [0 -1])
 (def dir-left [-1 0])
@@ -51,19 +51,8 @@
               :col-n col-n}
     {:tag :boardgames}))
 
-(defn opponent [player]
-  (if (= 0 player) 1 0))
-
-
 (defn empty-board [n-rows n-columns]
   (new-board #{} n-rows n-columns))
-
-(defn pieces-at-pos [board pos]
-  (filter #(= pos (:pos %)) (:pieces board)))
-
-(defn pieces-matching [board partial-piece]
-  (filter #(= (select-keys % (keys partial-piece)) partial-piece)
-          (:pieces board)))
 
 (defn board->symbolic [board]
   (let [rows  (:row-n board)
@@ -97,7 +86,12 @@
                 (remove nil?))]
     (new-board pieces (count symbolic-board) (count (first symbolic-board)))))
 
+(defn pieces-at-pos [board pos]
+  (filter #(= pos (:pos %)) (:pieces board)))
 
+(defn pieces-matching [board partial-piece]
+  (filter #(= (select-keys % (keys partial-piece)) partial-piece)
+          (:pieces board)))
 
 ;;
 ;; ## Moves
@@ -113,15 +107,6 @@
    :finished? false
    :flags #{}})
 
-
-
-(defmulti continue-pmove-for-piece
-  "Given a pmove, return the next posible pmoves"
-  (fn [pmove]
-    (:type (:piece (first (:steps pmove))))))
-
-(defmethod continue-pmove-for-piece :default [_] '())
-
 (defn- pmove-outside-board? [pmove]
   (let [last-step (first (:steps pmove))
         {:keys [board piece]} last-step
@@ -130,27 +115,61 @@
         (>= (first pos) (:col-n board))
         (>= (second pos) (:row-n board)))))
 
-(defn possible-pmoves-for-piece
-  "Returns list of all valid (and finished) pmoves for a given piece"
-  ;; TODO: maybe remove recursion?
-  [base-pmove]
-  (let [p-moves (continue-pmove-for-piece base-pmove)]
-    (mapcat (fn [p-move]
-              (cond (pmove-outside-board? p-move) '()
-                    (:finished? p-move) (list p-move)
-                    :else (possible-pmoves-for-piece p-move)))
-            p-moves)))
+#_ (defmulti expand-pmove-step
+  "Given a pmove, return the next posible pmoves"
+  (fn [pmove]
+    (:type (:piece (first (:steps pmove))))))
+
+#_(defmethod expand-pmove-step :default [_] '())
+
+
+(defn- pmove-piece-type [pmove]
+  (:type (:piece (first (:steps pmove)))))
+
+(defn expand-pmove
+  "Give a starting base pmove, return the list of all valid (finished) pmoves"
+  [expansion-rules base-pmove]
+
+  (if-let [expand-pmove-step (get expansion-rules (pmove-piece-type base-pmove))]
+
+    (->> (expand-pmove-step base-pmove)
+         (mapcat (fn [p-move]
+                   (cond (pmove-outside-board? p-move) '()
+                         (:finished? p-move) (list p-move)
+                         :else (expand-pmove expansion-rules p-move))) ;; recurse
+                 ))
+
+    (list)))
 
 (defn possible-pmoves "Returns list of all valid (and finished) pmoves"
   [game-state]
 
-  (let [board (:board game-state)]
+  (let [{:keys [board game-def]} game-state]
     (->> board
          :pieces
          (filter #(= (:turn game-state)
                      (:player %)))
-         (mapcat #(possible-pmoves-for-piece (new-pmove board %))))))
+         (mapcat #(expand-pmove (:expansion-rules game-def) (new-pmove board %))))))
 
+#_(defn expand-pmove-OLD
+  "Returns list of all valid (and finished) pmoves for a given piece"
+  [base-pmove]
+  (let [p-moves (expand-pmove-step base-pmove)]
+    (mapcat (fn [p-move]
+              (cond (pmove-outside-board? p-move) '()
+                    (:finished? p-move) (list p-move)
+                    :else (expand-pmove-OLD p-move))) ;; recurse
+            p-moves)))
+
+#_(defn possible-pmoves-OLD "Returns list of all valid (and finished) pmoves"
+  [game-state]
+
+  (let [{:keys [board game-def ]}game-state]
+    (->> board
+         :pieces
+         (filter #(= (:turn game-state)
+                     (:player %)))
+         (mapcat #(expand-pmove (new-pmove board %))))))
 
 (defn- pmove-add-step [pmove update-fn]
   (update-in pmove [:steps] (fn [steps] (conj steps (update-fn (first steps))))))
@@ -203,7 +222,8 @@
 (defn pmove-finished? [pmove]
   (:finished? pmove))
 
-
+(defn opponent [player]
+  (if (= 0 player) 1 0))
 
 ;;
 ;; ## Games
@@ -226,7 +246,7 @@
   ([gamedef]
    (start-game gamedef ((:initiate-board-fn gamedef))))
   ([gamedef initial-board]
-   {:game gamedef
+   {:game-def gamedef
     :board initial-board
     :turn 0}))
 
