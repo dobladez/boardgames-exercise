@@ -7,7 +7,7 @@
   ([] (start! {}))
   ([opts]
    (let [defaults {:port 7778
-                   :watch-paths ["notebooks" #_"src"]
+                   :watch-paths ["notebooks" "src" "test"]
                    :browse? true}]
      (clerk/serve!
 

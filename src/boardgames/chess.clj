@@ -1,4 +1,3 @@
-
 ;; # Chess
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (ns boardgames.chess
@@ -7,13 +6,12 @@
             [boardgames.clerk-viewers :as viewers]
             [boardgames.core
              :as core
-             :refer [dir-up dir-down dir-left dir-right dir-up-left
-                     dir-up-right dir-down-left dir-down-right
+             :refer [↑ ↓ ← → ↖ ↗
                      pmove-on-same-player-piece?
                      pmove-on-other-player-piece?
                      pmove-outside-board?
-                     pmove-piece-initial-move?
-                     pmove-over-max-steps??]]))
+                     pmove-piece-1st-move?
+                     pmove-over-max-steps?]]))
 
 {::clerk/visibility {:code :show :result :hide}
  ::clerk/auto-expand-results? true
@@ -43,16 +41,10 @@
 
 ;; TODO: rules
 
-(def rook-dirs [dir-up dir-down dir-left dir-right])
-(def bishop-dirs [dir-up-left dir-up-right dir-down-left dir-down-right])
+(def rook-dirs (core/rotations [0 1]))
+(def bishop-dirs (core/rotations [1 1]))
 (def all-dirs (concat rook-dirs bishop-dirs))
-(def knight-dirs [[-2 -1] [-1 -2] [+1 -2] [+2 -1]
-                  [-2 +1] [-1 +2] [+1 +2] [+2 +1]])
-(def king-basic-moves all-dirs)
-
-
-
-
+(def knight-dirs (core/flip-and-rotations [1 2]))
 
 (defn expand-pmove-fixed-dir
   "Expand pmove but only on its last step's direction. If no previous step, use all possible dirs.
@@ -71,8 +63,10 @@
                   (mapv - (-> step-a :piece :pos) (-> step-b :piece :pos))))))))
 
 (defn expand-pmove-dirs [possible-dirs pmove]
-  (->> possible-dirs
-       (map (partial core/pmove-move-piece pmove))))
+  (let [player (-> pmove :steps first :piece :player)]
+    (->> possible-dirs
+         (map (partial core/adjust-dir-to-player player))
+         (map (partial core/pmove-move-piece pmove)))))
 
 (defn pmoves-stepping-own-disallowed [pmoves]
   (remove core/pmove-on-same-player-piece? pmoves))
@@ -102,11 +96,11 @@
 
       pmove)))
 
+
 ;;
-;; Ideas of combinators:
-
+;; Ideas for combinators:
+;;
 (comment
-
   (pmove-expand-alt
    (pmove-expand-if-first-step dirs)
    (pmove-expand-on-same-direction))
@@ -116,8 +110,6 @@
            pmove-outside-board?
            in-check?)))
 
-(comment
-;;
 ;; Pattern:
 ;;   1. generate moves (expand): pmove -> [pmove]
 ;;   2. discard moves (shrink, filter): [pmove] -> [pmove] (remove some pmoves)
@@ -126,182 +118,92 @@
 ;;
 ;; So, maybe we have move-generators,  move-filters, move-enrichers, move-finishers?
 
-  ;; Rook v2 ideas
-  (-> pmove
-      (compose-pmove-gens
-       (gen-pmoves-simple-dirs rook-dirs))
-      (filter-pmoves #_filter-pmoves-occupied-same-player-piece
-                     filter-pmoves-outside-board
-                     filter-pmoves-in-check ;; this could be generic for all chess moves))
-
-;; Pawn v2 ideas
-  (-> pmove
-      (compose-pmove-gens
-       #_(gen-pmoves-simple-dirs up-dir :empty :opponent) ;; dir from players' view
-       (gen-pmoves-simple-dirs up-dir) ;; dir from players' view
-       #_(gen-pmoves-capture-dirs dir-fwd))
-
-      (filter-pmoves #_filter-pmoves-occupied-same-player-piece
-       filter-pmoves-outside-board
-                     filter-pmoves-in-check ;; this could be generic for all chess moves
-                     )))))
-
-;; possible combinators:
-;; 1. move piece in given direction:  pmove -> [pmove]
-;; 2. 2nd+ steps on same direction :  pmove -> pmove | nil (or [pmove] -> [pmove])
-;; 3. stop on same-player piece (obstruction):  pmove -> pmove | nil (or [pmove] -> [pmove])
-;; 4. stop on board edge :  pmove -> pmove | nil (or [pmove] -> [pmove])
-;; 5. capture on opponent piece :  pmove -> pmove
-;; 6. capture on en passant :  pmove -> pmove
-;; 7. promotion :  pmove -> pmove
-;; 8. castling :  pmove -> pmove
-;; 9. check :  pmove -> pmove
-;; 10. checkmate :  pmove -> pmove
-;; 11. stalemate :  pmove -> pmove
-
-;; (defn pmove-move-piece-dirs [dirs pmove]
-;;   (map (partial core/pmove-move-piece pmove) dirs))
-
-;;
-
 
 ;; ### Rook
-#_(defmethod core/expand-pmove-step :r_OLD [pmove]
-  (->>
-
-   #_(pmove-expand-if-first-step dirs) ;; expander
-   #_(pmove-expand-on-same-direction)
-
-   #_(if (pmove-first-step? pmove)
-       (pmove-move-piece-dirs pmove dirs)
-       (pmove-move-piece-same-dir pmove))
-   (pmove-move-piece-same-dir rook-dirs pmove)
-   (remove core/pmove-on-same-player-piece?)
-       ;; TODO finish at other player piece (capture)
-   (map pmoves-finish-capturing-opponent-piece)
-   (pmoves-finish-and-continue)) ;; vs pmoves-finish-at-one-step ?
-  )
-
 (defn pmoves-discard [pred coll]
   (remove pred coll))
 
-
-#_ (defmethod core/expand-pmove-step :r [pmove]
-  (->> pmove
-       (pmove-expand-piece-dirs rook-dirs)
-       (pmoves-discard (some-fn pmove-changed-direction?
-                                core/pmove-on-same-player-piece?))
-       (map pmoves-finish-capturing-opponent-piece)
-       (pmoves-finish-and-continue)))
-
-;; ### Pawn partial move
-#_ (defmethod core/expand-pmove-step :p  [pmove]
-  (let [steps (reverse (:steps pmove));;; TODO remove reverse
-        player (-> steps last :piece :player);; TODO easier
-        direction (if (= 0 player) dir-up dir-down);; TODO extract to generic "(flip-direction player dirs)"
-        unfinshed-pmove (core/pmove-move-piece pmove direction)
-        finished-pmove (core/pmove-finish unfinshed-pmove)]
-
-    ;; TODO capturing moves and en passant. Maybe seperate function?
-    (if (or (> (count steps) 1)
-            (-> steps first :piece (core/piece-flag? :moved)))
-      (list finished-pmove)
-      (list finished-pmove unfinshed-pmove))))
-
-
-
-#_(comment
-    #_pmove-outside-board?
-    #_(pmoves-enrich (pmove-capture-piece))
-    #_(pmoves-finish-all)
-
-    ;; Other "DSL" ideas:
-
-    (-> pmove
-        (pmove-expand (pmove-move-piece-dirs dirs)) ;; pmove -> [pmove]
-        (pmoves-discard (pmove-on-same-player-piece?)) ;; [pmove] -> [pmove] (shrink)
-        (pmoves-enrich (pmove-capture-piece)) ;; [pmove] -> [pmove] (enrich, that is: map)
-        (pmoves-finish)) ;; [pmove] -> [pmove] (finish, that is: map and maybe concat)
-
-    (new-pmove-rule :chess/rook                      ;;
-                    :expand (pmove-expand-dirs dirs) ;; pmove -> [pmove]
-                    :limit (pmove-on-same-player-piece?) ;; [pmove] -> [pmove] (shrink)
-                    :enrich (pmove-capture-piece-on-same-position) ;; [pmove] -> [pmove] (enrich, that is: map)
-                    :finish finish-all) ;; [pmove] -> [pmove] (finish, that is: map and maybe concat)
-
-    (-> pmove
-        (pmove-expand-piece-dirs dirs)
-        (pmoves-discard  (some-fn pmove-changed-direction?
-                                  pmove-on-same-player-piece?
-                                  pmove-outside-board?))
-        (pmoves-enrich (pmove-capture-piece))
-        (pmoves-finish-all))
-
-    ;; Pawn, move fwd:
-    (-> pmove
-        (pmove-expand-piece-dirs [dir-up]) ;; or down for black
-        (pmoves-discard (some-fn (pmove-max-step-count-n 2)
-                                 (pmove-max-step-count-n-p 1 piece-first-move?)
-                                 pmove-on-same-player-piece?
-                                 pmove-on-other-player-piece?
-                                 pmove-outside-board?))
-        (pmoves-enrich (pmove-enrich-enpassant)
-                       (pmove-enrich-promotion))
-        (pmoves-finish-all))
-
-    ;; Pawn, move capture:
-    (-> pmove
-        (pmove-expand-piece-dirs [dir-up-right dir-up-left]) ;; or down for black
-        (pmoves-discard (some-fn (every-pred (complement pmove-on-other-player-piece?)
-                                             pmove-on-enpassant-pawn?)
-                                 pmove-outside-board?))
-        (pmoves-enrich (pmove-capture-piece))
-        (pmoves-finish-all)))
+;; ---
 
 (def chess-expansion-rules
-  {:r (fn expand-pmove-chess-rook [pmove]
+  {:k (fn expand-pmove-chess-king [pmove]
         (->> pmove
-             (expand-pmove-dirs rook-dirs)
+             (expand-pmove-dirs (mapcat core/rotations [↑ ↗]))
+             (pmoves-discard (some-fn pmove-on-same-player-piece?
+                                      (partial pmove-over-max-steps? 1)))
+             (map pmoves-finish-capturing-opponent-piece)
+             (pmoves-finish-and-continue)))
+
+   :r (fn expand-pmove-chess-rook [pmove]
+        (->> pmove
+             (expand-pmove-dirs [↑ ↓ ← →])
+             #_(expand-pmove-dirs (core/rotations ↑))
+             (pmoves-discard (some-fn pmove-changed-direction?
+                                      pmove-on-same-player-piece?))
+             (map pmoves-finish-capturing-opponent-piece)
+             (pmoves-finish-and-continue)))
+
+   :b (fn expand-pmove-chess-bishop [pmove]
+        (->> pmove
+             (expand-pmove-dirs (core/rotations ↗))
+             (pmoves-discard (some-fn pmove-changed-direction?
+                                      pmove-on-same-player-piece?))
+             (map pmoves-finish-capturing-opponent-piece)
+             (pmoves-finish-and-continue)))
+
+   :n (fn expand-pmove-chess-knight [pmove]
+        (->> pmove
+             (expand-pmove-dirs (core/flip-and-rotations [1 2]))
+             (pmoves-discard (some-fn (partial pmove-over-max-steps? 1)
+                                      pmove-on-same-player-piece?))
+             (map pmoves-finish-capturing-opponent-piece)
+             (pmoves-finish-and-continue)))
+
+   :q (fn expand-pmove-chess-queen [pmove]
+        (->> pmove
+             (expand-pmove-dirs (mapcat core/rotations [↑ ↗]))
              (pmoves-discard (some-fn pmove-changed-direction?
                                       pmove-on-same-player-piece?))
              (map pmoves-finish-capturing-opponent-piece)
              (pmoves-finish-and-continue)))
 
    :p (fn expand-pmove-chess-pawn [pmove]
-        (let [player (-> pmove :steps first :piece :player);; simplify?
-              max-steps (if (pmove-piece-initial-move? pmove) 2 1)]
+        (concat
+         (->> pmove ;; Move fwd rule
+              (expand-pmove-dirs [↑])
+              (pmoves-discard (some-fn pmove-changed-direction?
+                                       pmove-on-same-player-piece?
+                                       (partial pmove-over-max-steps?
+                                                (if (pmove-piece-1st-move? pmove) 2 1))))
+              (pmoves-finish-and-continue))
 
-          (concat
-           (->> pmove ;; Move fwd rule
-                (expand-pmove-dirs [(core/adjust-dir-to-player player dir-up)])
-                (pmoves-discard (some-fn pmove-changed-direction?
-                                         pmove-on-same-player-piece?
-                                         (pmove-over-max-steps?? max-steps)))
-                (pmoves-finish-and-continue))
+         (->> pmove ;; Capture rule
+              (expand-pmove-dirs [↖ ↗])
+              (pmoves-discard #(or (not (pmove-on-other-player-piece? %))
+                                   (pmove-over-max-steps? 1 %)))
+              (map pmoves-finish-capturing-opponent-piece))
 
-           (->> pmove ;; Capture rule
-                (expand-pmove-dirs (map (partial core/adjust-dir-to-player player) [dir-up-left dir-up-right]))
+         #_(->> pmove ;; En-passant rule: TODO
+                (expand-pmove-dirs [dir-up-left dir-up-right])
                 (pmoves-discard (some-fn (complement pmove-on-other-player-piece?)
                                          (pmove-over-max-steps?? 1)))
-                (map pmoves-finish-capturing-opponent-piece))
+                (map pmoves-finish-capturing-opponent-piece))))})
 
-           #_(->> pmove ;; En-passant rule: TODO
-                (expand-pmove-dirs (map (partial core/adjust-dir-to-player player) [dir-up-left dir-up-right]))
-                (pmoves-discard (some-fn (complement pmove-on-other-player-piece?)
-                                         (pmove-over-max-steps?? 1)))
-                (map pmoves-finish-capturing-opponent-piece)))
+(defn captures-king? [pmove]
+  (when-let [captures (-> pmove :steps first :captures seq)]
+    (contains?  (set (map :type captures)) :k)))
 
-;; TODO capturing moves (and en-passant). Maybe seperate functions?
-          ))})
+(def chess-aggregate-rules
+  [(fn discard-king-checked-pmoves [pmoves]
+     (->> pmoves
+          (remove #(let [board (-> % :steps first :board)
+                         player-turn (core/opponent-player (-> % :steps first :piece :player))
+                         follow-up-moves (core/candidate-pmoves* board player-turn chess-expansion-rules)]
+                     (some captures-king? follow-up-moves)))))
 
-(def chess-aggregate-rules [])
+   (fn xyz [pmoves]
+     pmoves)])
 
-#_(core/defgame chess-game
-    {:name "Chess"
-     :player-count 2
-     :initiate-board-fn initiate-chess-board
-     :expansion-rules []
-     :aggregate-rules []})
 
 (core/defgame chess-game "Chess" 2 initiate-chess-board chess-expansion-rules chess-aggregate-rules)
 
@@ -310,6 +212,7 @@
 ;; Usage:
 (comment
   (def aGame (core/start-game chess-game)))
+
 
 
 ;;

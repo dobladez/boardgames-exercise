@@ -216,12 +216,12 @@
 ;; ## Alternate representations
 
 ;; Our new board structure is more flexible, and we have nice graphical
-;; viewers... but I still I miss the simple matrix represation: It's good to
-;; have an easy way to express _literal_ boards without the whole data
-;; structure with all those details...  specially when working at the REPL, or
-;; writing unit tests.
+;; viewers... but I still I miss the simple matrix syntax: It's good to have an
+;; easy way to express _literal_ boards without the whole data structure with
+;; all those details...  specially when working at the REPL, or writing unit
+;; tests.
 ;;
-;; How about we write a function for that? That's function `core/symbolic->board` : it
+;; How about we write a function for that? That's what `core/symbolic->board` does: it
 ;; converts our simple matrix to our richer boards. Let's initialize a board
 ;; from a symbolic literal value:
 ^{::clerk/viewer viewers/side-by-side-board-viewer ::clerk/auto-expand-results? true }
@@ -310,14 +310,14 @@
 ;; Here's an example of one of the final generated moves for the rook above:
 ^{::clerk/visibility {:code :show :result :show}
   ::clerk/viewer viewers/side-by-side-move-viewer}
-(first (let [game (core/start-game chess/chess-game
-                                   (core/symbolic->board '[[r - k]
-                                                           [- - -]
-                                                           [R - K]]))]
-         (->> game
-              core/possible-pmoves
-              (filter (fn [pmove] (= [0 2] (-> pmove :steps first :piece :pos)))))))
-
+(let [game (core/start-game chess/chess-game
+                            (core/symbolic->board '[[r - k]
+                                                    [- - -]
+                                                    [R - K]]))]
+  (->> game
+       core/possible-pmoves
+       (filter (fn [pmove] (= [0 2] (-> pmove :steps first :piece :pos))))
+       first))
 
 ;; It contains three steps, as we move the `R`ook from position `[0 0]` to `[0
 ;; 2]`. Note that the last step also records the capturing of a piece (a pawn).
@@ -338,11 +338,11 @@
 (def game-1 (core/start-game chess/chess-game))
 
 ;; Get me all possible moves...
-          (count (core/possible-pmoves game-1))
+(count (core/possible-pmoves game-1))
 
 ;; Let's take a look at a couple of moves returned:
 ^{::clerk/viewer clerk-viewer/map-viewer
-::clerk/auto-expand-results? true}
+  ::clerk/auto-expand-results? true}
 (first (core/possible-pmoves game-1))
 
 ^{::clerk/viewer clerk-viewer/map-viewer
@@ -356,17 +356,19 @@
 ;; into the implementation of `core/possible-moves`.
 
 ;; Let's sort all the possible moves by piece x-coordinate, and show them visually:
-(clerk/row (sort-by #(-> % :steps first :piece :pos first)
-                        (core/possible-pmoves game-1)))
+(clerk/row
+ (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
+      (sort-by #(-> % :steps first :piece :pos first)
+               (core/possible-pmoves game-1))))
 
 ;; Just for kicks, let's start off the random board create above
-(def a-random-game
-  (core/start-game chess/chess-game a-random-board))
+(def a-random-game(core/start-game chess/chess-game a-random-board))
 
-;; Get all possible Rook moves:
+;; Get all possible moves:
 (clerk/row
- (->>  (core/possible-pmoves a-random-game)
-       (filter (fn [pmove] (= :r (-> pmove :steps last :piece :type))))))
+ (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
+      (sort-by #(-> % :steps first :piece :pos first)
+               (core/possible-pmoves a-random-game))))
 
 
 #_(clerk/row  (->> (core/possible-pmoves a-random-game)
@@ -413,8 +415,8 @@
 
     (let [maybe-var-value# ~expr
           value# (if (instance? clojure.lang.IDeref maybe-var-value#)
-                    (deref maybe-var-value#)
-                    maybe-var-value#)]
+                   (deref maybe-var-value#)
+                   maybe-var-value#)]
 
       ^{::clerk/visibility {:code :hide :result :show}}
       (clerk/row [(clerk/with-viewers clerk/default-viewers

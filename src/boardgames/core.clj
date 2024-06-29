@@ -32,15 +32,37 @@
       (flag-piece :moved)))
 
 ;; We use tuples of [column row] offsets to represent "directions". Here we give
-;; some common ones a name. Note: they are allowed to be more than 1 maybe
-(def dir-up [0 1])
-(def dir-down [0 -1])
-(def dir-left [-1 0])
-(def dir-right [1 0])
+;; some common ones a name. Note: they are allowed to be more than 1
+(def dir-up [0 +1])
 (def dir-up-left [-1 +1])
 (def dir-up-right [+1 +1])
-(def dir-down-left [-1 -1])
-(def dir-down-right [+1 -1])
+(def ↑ [0 +1])
+(def ↓ [0 -1])
+(def → [+1 0])
+(def ← [-1 0])
+(def ↗ [+1 +1])
+(def ↖ [-1 +1])
+(def ↘ [+1 -1])
+(def ↙ [-1 -1])
+
+(defn rotate-right [[x y]]
+  [y (- x)])
+
+(defn rotate-left [[x y]]
+  [(- y) x])
+
+(defn flip-h [[x y]]
+  [(- x) y])
+
+(defn flip-v [[x y]]
+  [x (- y)])
+
+(defn rotations [offset]
+  (vec (take 4 (iterate rotate-right offset))))
+
+(defn flip-and-rotations [offset]
+  (vec (concat (rotations offset)
+               (rotations (flip-h offset)))))
 
 ;;
 ;; ## Operations on a Board
@@ -56,17 +78,18 @@
 
 (defn board->symbolic [board]
   (let [rows  (:row-n board)
-        cols (:col-n board)
-        empty-board (vec (repeat rows (vec (repeat cols '-))))]
-    (->> (:pieces board)
-         (reduce (fn [board piece]
-                   (assoc-in board (reverse (:pos piece))
-                             (if (= 1 (:player piece))
-                               (symbol  (:type piece))
-                               (-> piece :type name upper-case symbol))))
-                 empty-board)
-         reverse
-         vec)))
+        cols (:col-n board)]
+    (when (and (number? rows) (number? cols))
+      (let [empty-board (vec (repeat rows (vec (repeat cols '-))))]
+        (->> (:pieces board)
+             (reduce (fn [board piece]
+                       (assoc-in board (reverse (:pos piece))
+                                 (if (= 1 (:player piece))
+                                   (symbol  (:type piece))
+                                   (-> piece :type name upper-case symbol))))
+                     empty-board)
+             reverse
+             vec)))))
 
 (defn upper-case? [kw]
  (= (name kw) (upper-case (name kw))))
@@ -157,35 +180,49 @@
 
     (list)))
 
-(defn possible-pmoves "Returns list of all valid (and finished) pmoves"
+
+(defn candidate-pmoves* [board player-turn expansion-rules]
+  (->> board
+       :pieces
+       (filter #(= player-turn (:player %)))
+       (mapcat #(expand-pmove expansion-rules (new-pmove board %)))))
+
+
+(defn candidate-pmoves "Generate (using game expansion rules) list of finished pmoves candidates"
   [game-state]
 
   (let [{:keys [board game-def]} game-state]
-    (->> board
+    (candidate-pmoves* board (:turn game-state) (:expansion-rules game-def))
+#_    (->> board
          :pieces
          (filter #(= (:turn game-state)
                      (:player %)))
          (mapcat #(expand-pmove (:expansion-rules game-def) (new-pmove board %))))))
 
-#_(defn expand-pmove-OLD
-  "Returns list of all valid (and finished) pmoves for a given piece"
-  [base-pmove]
-  (let [p-moves (expand-pmove-step base-pmove)]
-    (mapcat (fn [p-move]
-              (cond (pmove-outside-board? p-move) '()
-                    (:finished? p-move) (list p-move)
-                    :else (expand-pmove-OLD p-move))) ;; recurse
-            p-moves)))
+(defn- apply-aggregate-rules [game-state pmoves]
+  ;; TODO: change impl to avoid need for game-state on agg rules
+  #_((apply comp (:aggregate-rules (:game-def game-state))) game-state pmoves)
+  ((apply comp (:aggregate-rules (:game-def game-state))) pmoves)
 
-#_(defn possible-pmoves-OLD "Returns list of all valid (and finished) pmoves"
+
+  )
+
+(defn possible-pmoves "Returns list of all finished (and valid) pmoves"
   [game-state]
 
-  (let [{:keys [board game-def ]}game-state]
-    (->> board
-         :pieces
-         (filter #(= (:turn game-state)
-                     (:player %)))
-         (mapcat #(expand-pmove (new-pmove board %))))))
+  (->> (candidate-pmoves game-state)
+       (apply-aggregate-rules game-state)))
+
+
+
+;;;;
+(defn game-apply-pmove [game pmove]
+  ;; TODO
+  game
+  )
+(defn board-apply-pmove [board pmove]
+  ;; TODO
+  )
 
 (defn- pmove-add-step [pmove update-fn]
   (update-in pmove [:steps] (fn [steps] (conj steps (update-fn (first steps))))))
@@ -240,8 +277,8 @@
         piece (:piece last-step)]
     (not (empty? (pieces-matching starting-board (select-keys piece [:player :pos]))))))
 
-(defn pmove-over-max-steps?? [max]
-  (fn pmove-over-max-steps? [pmove] (> (dec (count (:steps pmove))) max)))
+(defn pmove-over-max-steps? [max pmove]
+  (> (dec (count (:steps pmove))) max))
 
 
 
@@ -251,7 +288,7 @@
 (defn pmove-finished? [pmove]
   (:finished? pmove))
 
-(defn pmove-piece-initial-move? [pmove]
+(defn pmove-piece-1st-move? [pmove]
   (not (-> pmove :steps last :piece (piece-flag? :moved))))
 
 
