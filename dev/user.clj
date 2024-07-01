@@ -1,13 +1,12 @@
 (ns user
-  (:require [nextjournal.clerk :as clerk]
-            #_[flow-storm.api :as fs-api]))
+  (:require [nextjournal.clerk :as clerk]))
 
 (defn start!
   "Starts a Clerk server process "
   ([] (start! {}))
   ([opts]
    (let [defaults {:port 7778
-                   :watch-paths ["notebooks" "src" "test"]
+                   :watch-paths ["notebooks" "src" #_"test"]
                    :browse? true}]
      (clerk/serve!
 
@@ -53,6 +52,5 @@
   (tap> :test)
   (add-tap #'portal.api/submit)
 
-  ;; flowstorm
-  (flow-storm.api/local-connect)
   )
+

@@ -31,7 +31,7 @@
 (defn initiate-chess-board []
   (core/symbolic->board initial-chess-symbolic-board))
 
-(defn initiate-fisher-chess-board []
+(defn initiate-shuffle-chess-board []
   (let [first-row (shuffle (first initial-chess-symbolic-board))
         last-row (->> first-row (mapv upper-case-keyword))]
     (-> initial-chess-symbolic-board
@@ -207,7 +207,7 @@
 
 (core/defgame chess-game "Chess" 2 initiate-chess-board chess-expansion-rules chess-aggregate-rules)
 
-(core/defgame fisher-chess-game "Chess" 2 initiate-fisher-chess-board chess-expansion-rules chess-aggregate-rules)
+(core/defgame shuffle-chess-game "Chess" 2 initiate-shuffle-chess-board chess-expansion-rules chess-aggregate-rules)
 
 ;; Usage:
 (comment

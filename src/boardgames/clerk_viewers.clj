@@ -70,7 +70,7 @@
 ;; It basically converts the board model representation to a symbolic one for rendering but the `render-fn` defined above
 (def board-viewer
   {:name `board-viewer
-   #_#_:pred (fn [board] (= (-> board meta :tag) :boardgames))
+   :pred (fn [board] (= (-> board meta :tag) :boardgames))
    :transform-fn
    (comp clerk/mark-presented (clerk/update-val
                                (fn [board]
@@ -101,7 +101,7 @@
 ;; This viewer basically takes the board from the last step of the move structure, and renders it highlighting the `from` and `to` squares
 ;; plus an indication if a piece was captured.
 (def board-move-viewer
-  {#_#_:pred (fn [maybe-move] (and (map? maybe-move) (contains? maybe-move :flags) (contains? maybe-move :steps)))
+  {:pred (fn [maybe-move] (and (map? maybe-move) (contains? maybe-move :flags) (contains? maybe-move :steps)))
    :transform-fn
    (comp clerk/mark-presented (clerk/update-val
                                (fn [move]
@@ -123,7 +123,7 @@
 (defn new-tabbed-viewer
   ([viewers-map] (new-tabbed-viewer viewers-map nil))
   ([viewers-map pred-fn]
-   {:pred pred-fn
+   {#_#_:pred pred-fn
     :transform-fn (comp clerk/mark-preserve-keys
                         (clerk/update-val (fn [val]
                                             (into {} (map (fn [[k viewer]]
