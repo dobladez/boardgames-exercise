@@ -5,11 +5,15 @@
             [clojure.edn :as edn]
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as clerk-viewer]
+            [nextjournal.clerk.test :as clerk.test]
             [boardgames.clerk-viewers :as viewers]
             [boardgames.core :as core]
             [boardgames.chess :as chess]
             ;;            [boardgames.checkers :as checkers]
-            [boardgames.utils :as utils]))
+            [boardgames.utils :as utils]
+            [boardgames.test-utils :as t]
+
+            [flow-storm.clerk :as clerk-storm]))
 
 ;;
 ;; # Exercise in modeling grid-board games
@@ -23,7 +27,9 @@
 ;; * I was reading chapter 2.4 "Abstracting a Domain" from the book "Software
 ;; Design for Flexibility" (by Chris Hanson and Gerald Jay Sussman). Which,
 ;; coincidentally, models the game of Checkers and asks to extend it to Chess as
-;; an exercise.
+;; an exercise.[^sdff_book]
+;;
+;; [^sdff_book]: &nbsp; ![image](https://mit-press-us.imgix.net/covers/9780262045490.jpg?auto=format&w=298&dpr=2&q=80)
 ;;
 ;; ### Problem statement
 ;;
@@ -88,7 +94,8 @@
 
  #_^{::clerk/visibility {:code :hide :result :hide}} (clerk/reset-viewers! clerk/default-viewers)
 
- #_^{::clerk/visibility {:code :hide :result :hide}} (clerk/add-viewers! [viewers/board-viewer])
+ ^{::clerk/visibility {:code :hide :result :hide}} (clerk/add-viewers! [viewers/board-viewer])
+
  #_^{:nextjournal.clerk/visibility {:code :hide :result :hide}} (clerk/add-viewers! [viewers/chess-board-viewer])
 
  #_^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
@@ -344,65 +351,128 @@
 ;; The idea of modeling moves as a list of steps will make sense when you dig
 ;; into the implementation the game-specific functions to expand the pmoves.
 
-;; Let's generate all the possible moves from a starting chess board. We sort
-;; them by piece x-coordinate, and show them visually:
 
+
+;; ## Call stack from `(possible-pmoves ...)`
+
+
+;; Let's see the main functions in the call chain we trigger with `(core/possible-pmove ...)`[^clojure-storm].
+;; On each function call, you can click on the argument names to see the value of
+;; each:
+;;
+;; [^clojure-storm]: this viewer is powered by ClojureStorm (and FlowStorm): a
+;; runtime tracing debugger that lets you record the execution of any Clojure
+;; code, capturing code and values.
+
+
+^{::clerk/visibility {:code :show :result :hide}}
 (def game-1 (core/start-game chess/chess-game))
+
+
+^{::clerk/viewer clerk-storm/trace-code-viewer}
+(clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
+                                            #"candidate-pmoves\*?"
+                                            #"expand-pmove"] }
+  (core/possible-pmoves game-1))
+
+;; a lot more could be done here... show call trees, return values, etc.
+
+
+#_(comment
+    ;; Show dynamic function calls
+    ;; Here's a viewer that evaluates a piece of code, traces all runtime
+    ;; information using ClojureStorm, and shows the main function calls with their
+    ;; arguments:
+)
+
+
+
+;; ## All moves
+
+;; OK, let's generate all the possible moves from a starting chess board. We sort
+;; them by piece coordinate, and show them visually:
+
 
 (clerk/row
  (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
-      (sort-by #(-> % :steps first :piece :pos first)
+      (sort-by #(-> % :steps last :piece :pos)
                (core/possible-pmoves game-1))))
+
+
+
+
+
 
 
 ;; ### Automated Tests
 
-;; #### TODO Explain/show more details
-
-;; Example:
-^{::clerk/visibility {:code :show :result :hide}}
-'(t/expect-moves-2 {:piece :R}
-                   '[[- - - -]
-                     [- - - -]
-                     [R - - -]
-                     [- - - -]]
-
-                   '[[- - - -] [- - - -]  [R - - -]   [- - - -] [- - - -] [- - - -]
-                     [- - - -] [R - - -]  [- - - -]   [- - - -] [- - - -] [- - - -]
-                     [- - - -] [- - - -]  [- - - -]   [- R - -] [- - R -] [- - - R]
-                     [R - - -] [- - - -]  [- - - -]   [- - - -] [- - - -] [- - - -]])
-
-;; ## * TODO Show test runner within Clerk, with visual boards to show the errors
-;; see:
-;; * [boardgames/clerk-testrunner](/test/boardgames/clerk_testrunner)
+;; Our _symbolic_ representation of the boards allowed us to create a helper function for running tests:
+;; given a board possition, we list the boards we expect as possible moves.
 ;;
+;; Example:
+^{::clerk/visibility {:code :show :result :hide}
+  ::clerk/viewer clerk-viewer/code-viewer}
+(t/expect-moves {:piece :R}
 
-;; ## * TODO Automatically validate expected moves by comparing against an existing game engine
+                  '[[p R -]
+                    [- - -]
+                    [- K -]]
+
+                  '[[[R - -] ;; Capturing the pawn
+                     [- - -]
+                     [- K -]]
+
+                    [[p - -]
+                     [- R -]
+                     [- K -]]
+
+                    [[p p R]
+                     [- - -]
+                     [- K -]]])
+
+;; v2: horizonally
+^{::clerk/visibility {:code :show :result :hide}
+  ::clerk/viewer clerk-viewer/code-viewer}
+(t/expect-moves-2 {:piece :R}
+                  '[[- - - -]
+                    [- - - -]
+                    [R - - -]
+                    [- - - -]]
+
+                  '[[- - - -] [- - - -]  [R - - -]   [- - - -] [- - - -] [- - - -]
+                    [- - - -] [R - - -]  [- - - -]   [- - - -] [- - - -] [- - - -]
+                    [- - - -] [- - - -]  [- - - -]   [- R - -] [- - R -] [- - - R]
+                    [R - - -] [- - - -]  [- - - -]   [- - - -] [- - - -] [- - - -]])
+
+
+;; The interesting thing, however, is when there's a failure...
+
+(clerk/with-viewer clerk.test/test-suite-viewer
+  @clerk.test/!test-report-state)
+
+;; For more, see:
+;; * [boardgames/clerk-testrunner](/test/boardgames/clerk_testrunner)
+
 
 
 ;; ---
 
-;; # ********* DRAFT SKETCH NOTES *********
-;; ##
+;; ## ********* DRAFT SKETCH NOTES *********
 
-;; # *** WIP ***
-;; ## * TODO: Explain move generation impl (core primitives + game-specific rules)
-;; ## * TODO: implement other games (TTT, checkers)
-;; ## * TODO: implement game loop: to actually 'play'. Basically: "apply" moves to game stage
-
-
-;; Write utility functions as a simply "DSL" to write expressive tests
-;; (see `test/*.clj`)
+;; #### * TODO Automatically validate expected moves by comparing against an existing game engine
+;; #### * TODO: Explain more about move generation (core primitives + game-specific rules)
+;; #### * TODO: implement other games (TTT, checkers)
+;; #### * TODO: implement game loop: to actually 'play'. Basically: "apply" moves to game stage
 
 
 
 ;; ---
 
 ;; Just for kicks, let's start off the random board create above
-(def a-random-game(core/start-game chess/chess-game a-random-board))
+(def a-random-game (core/start-game chess/chess-game a-random-board))
 
 ;; Get all possible moves:
 (clerk/row
  (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
-      (sort-by #(-> % :steps first :piece :pos first)
-               (core/possible-pmoves a-random-game))))
+     (sort-by #(-> % :steps last :piece :pos)
+              (core/possible-pmoves a-random-game))))

@@ -23,7 +23,9 @@
         (conj new-elem))
     s))
 
-(defmacro ttap> [& body]
+(defmacro TAP> [& body]
   `(let [result# (do ~@body)]
      (tap> result#)
-     result#))
+     result#)
+  ;; `(doto ~@body tap>)
+  )

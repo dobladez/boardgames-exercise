@@ -6,7 +6,7 @@
   ([] (start! {}))
   ([opts]
    (let [defaults {:port 7778
-                   :watch-paths ["notebooks" "src" #_"test"]
+                   :watch-paths ["notebooks" #_ "src" #_"test"]
                    :browse? true}]
      (clerk/serve!
 
@@ -48,9 +48,8 @@
   ;; If you started your repl with Portal in the classpath:
   (require 'portal.api)
   (def p (portal.api/open))
-  (portal.api/close p)
-  (tap> :test)
   (add-tap #'portal.api/submit)
+  (tap> :test)
+  (portal.api/close p)
 
   )
-

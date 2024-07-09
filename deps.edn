@@ -1,6 +1,6 @@
 {:paths ["src" "notebooks" "dev"]
  :deps { #_#_ org.clojure/clojure {:mvn/version "1.11.1"}
-         io.github.nextjournal/clerk {:mvn/version "0.16.1016"} }
+        io.github.nextjournal/clerk {:mvn/version "0.16.1016"} }
  :aliases
  {:dev
   {;; for disabling the official compiler (to use flow-storm):
@@ -8,8 +8,8 @@
    :extra-paths ["test"]
    :extra-deps
    {com.github.flow-storm/clojure {:mvn/version "1.12.0-beta1"}
-#_#_    com.github.flow-storm/flow-storm-dbg {:mvn/version "3.15.8"}
-    com.github.flow-storm/flow-storm-debugger {:git/sha "e69d262a46255bea351a3a8ae03061a932629c08"}
+    com.github.flow-storm/flow-storm-dbg {:mvn/version "3.16.0"}
+
     org.slf4j/slf4j-nop {:mvn/version "1.7.36"}
     djblue/portal       {:mvn/version "0.48.0"} }
 

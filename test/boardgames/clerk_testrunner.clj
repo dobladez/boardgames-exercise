@@ -11,21 +11,24 @@
 
 
 #_(defonce trigger-run nil)
-
 #_(def test-report
     (clerk/with-viewer clerk.test/test-suite-viewer
       @clerk.test/!test-report-state))
 
 
-(do
+(defn run-tests-on-clerk []
   (binding [test/report clerk.test/report]
-    (println "***** about to run clerk.test/rest-state!")
     (clerk.test/reset-state!)
-
-    (println "***** about to run test/run-all-tests!")
     (test/run-all-tests #"boardgames.*-test$")
-    #_(clerk/clear-cache! 'test-report)
-    #_(clerk/recompute!))
+    (clerk/recompute!)))
 
-  (clerk/with-viewer clerk.test/test-suite-viewer
-    @clerk.test/!test-report-state))
+(defonce test-run (run-tests-on-clerk))
+
+(clerk/with-viewer clerk.test/test-suite-viewer
+  @clerk.test/!test-report-state)
+
+
+
+(comment
+  (run-tests-on-clerk)
+  )

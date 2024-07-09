@@ -1,7 +1,7 @@
 ;; # Chess
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (ns boardgames.chess
-  (:require [boardgames.utils :refer [upper-case-keyword ttap>]]
+  (:require [boardgames.utils :refer [upper-case-keyword TAP>]]
             [nextjournal.clerk :as clerk]
             [boardgames.clerk-viewers :as viewers]
             [boardgames.core
@@ -128,7 +128,7 @@
 (def chess-expansion-rules
   {:k (fn expand-pmove-chess-king [pmove]
         (->> pmove
-             (expand-pmove-dirs (mapcat core/rotations [↑ ↗]))
+             (expand-pmove-dirs (mapcat core/rotations [↑ #_ ↗]))
              (pmoves-discard (some-fn pmove-on-same-player-piece?
                                       (partial pmove-over-max-steps? 1)))
              (map pmoves-finish-capturing-opponent-piece)

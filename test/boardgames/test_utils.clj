@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.data :as data]
             [clojure.string :refer [lower-case upper-case]]
-            [boardgames.utils :as utils :refer [ttap>]]
+            [boardgames.utils :as utils :refer [TAP>]]
             [boardgames.clerk-viewers :as viewers]
             [boardgames.core :as core]
             [boardgames.chess :as chess]

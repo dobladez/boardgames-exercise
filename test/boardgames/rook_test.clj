@@ -75,7 +75,7 @@
                      [- R -]
                      [- K -]]
 
-#_                    [[p - R]
+                    [[p - R]
                      [- - -]
                      [- K -]]])
 
@@ -124,8 +124,21 @@
                       [- K - - -] [- K - - -]  [- K - - -] [- K - - -]
                       [R - - - -] [- - - - -]  [- - - - -] [- - - - -]]))
 
-#_#_^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
-    (clerk/add-viewers! [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer])
+#_
+^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
+(clerk/add-viewers! [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer])
 
-  ^{:nextjournal.clerk/visibility {:code :hide :result :show}}
-  (t/view-test-case ... )
+#_#_
+^{:nextjournal.clerk/visibility {:code :hide :result :show}}
+(t/view-test-case (t/expect-moves-2 {:piece :R}
+                    '[[- - - - -]
+                      [- - - - -]
+                      [- - - - -]
+                      [R K - - -]
+                      [- - - - -]]
+
+                    '[[- - - - -] [- - - - -]  [- - - - -] [R - - - -]
+                      [- - - - -] [- - - - -]  [R - - - -] [- - - - -]
+                      [- - - - -] [R - - - -]  [- - - - -] [- - - - -]
+                      [- K - - -] [- K - - -]  [- K - - -] [- K - - -]
+                      [R - - - -] [- - - - -]  [- - - - -] [- - - - -]]) )
