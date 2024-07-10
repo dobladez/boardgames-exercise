@@ -369,7 +369,7 @@
 (def game-1 (core/start-game chess/chess-game))
 
 
-^{::clerk/viewer clerk-storm/trace-code-viewer}
+^{::clerk/viewer clerk-storm/timeline-stepper-viewer}
 (clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
                                             #"candidate-pmoves\*?"
                                             #"expand-pmove"] }
