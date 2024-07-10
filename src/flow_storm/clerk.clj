@@ -3,6 +3,7 @@
 (ns flow-storm.clerk
   (:require [boardgames.utils :refer [TAP>]]
             [clojure.walk :as walk]
+            [clojure.string :as str]
             [flow-storm.form-pprinter :as form-pprinter]
             [flow-storm.runtime.indexes.api :as index-api]
             [flow-storm.runtime.debuggers-api :as debuggers-api]
@@ -186,8 +187,109 @@
 
 
 
+(defn stepper-token-class [form-id coord]
+  (format "%d-coord-%s" form-id (str/join "-" coord)))
+
+(defn print-val [v]
+  (binding [*print-length* 3
+            *print-level* 2]
+    (pr-str v)))
+
+(defn serialize-timeline [imm-timeline]
+  (mapv (fn [imm-entry]
+          (case (:type imm-entry)
+            :fn-call   (update imm-entry :fn-args print-val)
+            :fn-return (update imm-entry :result print-val)
+            :fn-unwind (update imm-entry :throwable print-val)
+            :bind      (update imm-entry :value print-val)
+            :expr      (update imm-entry :result print-val)))
+        imm-timeline))
+
+(defn pre-render-forms [forms-map]
+  (mapv (fn [[form-id form]]
+          (let [tokens (form-pprinter/pprint-tokens form)]
+            [form-id (into
+                      [:pre]
+                      (for [{:keys [kind text coord]} tokens]
+                        (case kind
+                          :sp " "
+                          :nl "\n"
+                          :text (if coord
+                                  [:span {:class (stepper-token-class form-id coord)} text]
+                                  [:span text]))))]))
+        forms-map))
+
+(defn get-form-id [imm-timeline tl-e]
+  (if (= :fn-call (:type tl-e))
+    (:form-id tl-e)
+    (->> tl-e :fn-call-idx (get imm-timeline) :form-id)))
+
+(def timeline-stepper-viewer
+  {:name `timeline-stepper-viewer
+   :transform-fn (comp
+                  clerk/mark-preserve-keys
+                  clerk/mark-presented
+                  (clerk/update-val
+                   (fn [{:keys [thread-id timeline opts] :as value}]
+                     (let [opts (merge opts (select-keys [:include-fn-names] (meta value)))
+                           forms (reduce (fn [forms {:keys [form-id]}]
+                                           (let [{:keys [form/form]} (index-api/get-form form-id)]
+                                             (assoc forms form-id form)))
+                                         {}
+                                         (fn-calls timeline {}))
 
 
+                           ret {:pre-rendered-forms (pre-render-forms forms)
+                                :ser-timeline (let [imm-timeline (mapv index-api/as-immutable timeline)]
+                                                (->> imm-timeline
+                                                     serialize-timeline))}]
+                       ret))))
+
+   :render-fn '(fn [{:keys [pre-rendered-forms ser-timeline]}]
+                 (reagent.core/with-let [!current-step (reagent.core/atom 0)]
+                   (let [step @!current-step
+                         tl-entry (get ser-timeline step)
+                         get-form-id (fn [tl-e]
+                                       (if (= :fn-call (:type tl-e))
+                                         (:form-id tl-e)
+                                         (->> tl-e :fn-call-idx (get ser-timeline) :form-id)))
+                         visible? (fn [e]
+                                    (let [rect (.getBoundingClientRect e)]
+                                      (<= 0 (.-top rect) (.-bottom rect) (.-innerHeight js/window))))
+                         stepper-token-class (fn [form-id coord]
+                                               (str form-id "-coord-" (clojure.string/join "-" coord)))
+                         re-highlight (fn [prev-step next-step]
+                                        (let [prev-e (get ser-timeline prev-step)
+                                              next-e (get ser-timeline next-step)
+                                              prev-class (stepper-token-class (get-form-id prev-e) (:coord prev-e))
+                                              next-class (stepper-token-class (get-form-id next-e) (:coord next-e))
+                                              prev-dom-elems (js/document.getElementsByClassName prev-class)
+                                              next-dom-elems (js/document.getElementsByClassName next-class)]
+                                          (doseq [e prev-dom-elems]
+                                            (.removeAttribute e "style"))
+                                          (doseq [e next-dom-elems]
+                                            (.setAttribute e "style" "background:magenta;"))
+                                          (let [focus-e (first next-dom-elems)]
+                                            (when-not (visible? focus-e)
+                                              (.scrollIntoView focus-e)))))]
+                     [:div
+                      [:div.controls {:style {:color :white :position :fixed :bottom 10 :right 10 :width 600 :height 200 :z-index 10000 :background :red}}
+                       [:button.px-3.py-1.font-mono.font-medium.hover:bg-indigo-50.rounded-full.hover:text-indigo-600
+                        {:on-click #(let [prev-step @!current-step]
+                                      (swap! !current-step dec)
+                                      (re-highlight prev-step @!current-step))}
+                        "Prev"]
+                       [:button.px-3.py-1.font-mono.font-medium.hover:bg-indigo-50.rounded-full.hover:text-indigo-600
+                        {:on-click #(let [prev-step @!current-step]
+                                      (swap! !current-step inc)
+                                      (re-highlight prev-step @!current-step))}
+                        "Next"]
+                       [:span (str step " out of " (count ser-timeline) " steps.")]
+                       [:div.val (:result tl-entry)]]
+                      [:div.forms (for [[form-id form-pre] pre-rendered-forms]
+                                    [:div.form
+
+                                     form-pre])]])))})
 
 (defonce _init_storm (index-api/start))
 
