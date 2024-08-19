@@ -31,6 +31,8 @@
 ;;
 ;; [^sdff_book]: &nbsp; ![image](https://mit-press-us.imgix.net/covers/9780262045490.jpg?auto=format&w=298&dpr=2&q=80)
 ;;
+;; ## Intro
+
 ;; ### Problem statement
 ;;
 ;; Model the game of chess.  Make the model flexible so that chess variations
@@ -227,6 +229,7 @@
 
 ;; ## Alternate representations
 
+
 ;; Our new board structure is more flexible, and we have nice graphical
 ;; viewers... but I still I miss the simple matrix syntax: It's good to have an
 ;; easy way to express _literal_ boards in code without the whole data structure...
@@ -369,13 +372,19 @@
 (def game-1 (core/start-game chess/chess-game))
 
 
-^{::clerk/viewer clerk-storm/timeline-stepper-viewer}
+^{::clerk/viewer clerk-storm/trace-code-viewer ::clerk/budget nil}
 (clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
                                             #"candidate-pmoves\*?"
                                             #"expand-pmove"] }
   (core/possible-pmoves game-1))
 
-;; a lot more could be done here... show call trees, return values, etc.
+
+^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
+(clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
+                                            #"candidate-pmoves\*?"
+                                            #"expand-pmove"] }
+  (core/possible-pmoves game-1))
+
 
 
 #_(comment
@@ -404,7 +413,7 @@
 
 
 
-;; ### Automated Tests
+;; ### automated Tests
 
 ;; Our _symbolic_ representation of the boards allowed us to create a helper function for running tests:
 ;; given a board possition, we list the boards we expect as possible moves.

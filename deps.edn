@@ -15,7 +15,7 @@
 
    :jvm-opts ["-Dclojure.storm.instrumentEnable=true"
               #_"-Dclojure.storm.instrumentOnlyPrefixes=boardgames,nextjournal.clerk"
-              "-Dclojure.storm.instrumentOnlyPrefixes=boardgames"]}
+              "-Dclojure.storm.instrumentOnlyPrefixes=boardgames,scratchpad,walkthrough"]}
 
 
   ;; This alias is used by https://clerk.garden/.

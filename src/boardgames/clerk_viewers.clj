@@ -82,7 +82,6 @@
 (def board-viewer
   {:name `board-viewer
    :pred (fn [maybe-board]
-           (println "board-viewer :pred called")
            (let [b (or (= (-> maybe-board meta :tag) :boardgames)
                        (and (map? maybe-board)
                             (contains? maybe-board :col-n)

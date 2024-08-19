@@ -128,7 +128,7 @@
 ^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
 (clerk/add-viewers! [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer])
 
-#_#_
+#_
 ^{:nextjournal.clerk/visibility {:code :hide :result :show}}
 (t/view-test-case (t/expect-moves-2 {:piece :R}
                     '[[- - - - -]
