@@ -10,62 +10,17 @@
             [flow-storm.utils :as utils]
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as clerk.viewer]))
-#_(comment
 
-  (def idx (atom 0))
-  (def _flow-id 0)
-  (def _thread-id 47)
 
-  (defn show-current []
-    (let [flow-id _flow-id
-          thread-id _thread-id
-          {:keys [type fn-ns fn-name coord fn-call-idx result] :as idx-entry} (index-api/timeline-entry flow-id thread-id @idx :at)
-          {:keys [form-id]} (index-api/frame-data flow-id thread-id fn-call-idx {})
-          {:keys [form/form]} (index-api/get-form form-id)]
-      (case type
-        :fn-call (let [{:keys [fn-name fn-ns]} idx-entry]
-                   (println "Called" fn-ns fn-name))
-        (:expr :fn-return) (let [{:keys [coord result]} idx-entry]
-                             (form-pprinter/pprint-form-hl-coord form coord)
-                             (println "\n")
-                             (println "==[VAL]==>" (utils/colored-string result :yellow))))))
 
-  (defn step-next []
-    (swap! idx inc)
-    (show-current))
+;; ================================================================================
+;; ================================================================================
+;; ================================================================================
+;; Flowstorm "static" callstack viewer
 
-  (defn step-prev []
-    (swap! idx dec)
-    (show-current)) )
-
-;; --------
 
 (def trace-code-render-fn
-
-  '(fn [tl]
-     (let []
-       [nextjournal.clerk.render/inspect-presented tl]
-       #_[nextjournal.clerk.render/inspect tl]
-
-       #_[:div
-          [:h1 "*Storm experiments:"]
-          [:div
-           [:pre (prn-str tl)]
-           #_(for [entry (->> tl reverse #_(filter #(= :fn-call (:type %))))]
-               [:div
-                [:div.flex.gap-2 #_(for [a (:fn-args entry)]
-                                     #_[:div a]
-                                     #_[:div [nextjournal.clerk.render/inspect-presented a]]
-                                     [:div [nextjournal.clerk.render/inspect a]]
-                                     #_[:pre (prn-str a)])]
-                #_[:div.flex.gap-2 (for [a (:fn-args entry)]
-                                     [:pre (prn-str (meta a))])]
-
-                #_[:pre (:_form entry)]
-                #_[:div [nextjournal.clerk.render/render-folded-code-block (:_form entry)]]
-                #_[:div [nextjournal.clerk.render/render-code-block (:_form entry)]]
-                #_[:pre (prn-str (select-keys entry [:type :fn-name]))]])]])))
-
+  '(fn [tl] (let [] [nextjournal.clerk.render/inspect-presented tl])))
 
 (defn storm-form->str [form c]
   (let [tokens (form-pprinter/pprint-tokens form)]
@@ -78,19 +33,11 @@
                                   (utils/colored-string text :red)
                                   text))]
                 txt)))))
-
-(defn- demunge-fn
+#_(defn- demunge-fn
   [fn-object]
   (let [dem-fn (clojure.repl/demunge (str fn-object))
         pretty (second (re-find #"(.*?\/.*?)[\-\-|@].*" dem-fn))]
     (if pretty pretty dem-fn)))
-
-
-
-(def flow-id 0)
-#_(def thread-id  (.getId (Thread/currentThread)))
-
-
 
 (def fn-args-viewer
   {:transform-fn (comp clerk/mark-preserve-keys
@@ -126,7 +73,7 @@
        ))
 
 (defn- enrich-with-form [thread-id tl-entry]
-  (let [{:keys [form-id]} (index-api/frame-data flow-id thread-id (:fn-call-idx tl-entry) {})
+  (let [{:keys [form-id]} (index-api/frame-data 0 thread-id (:fn-call-idx tl-entry) {})
         {:keys [form/form]} (index-api/get-form form-id)]
     (assoc tl-entry :form form :_form (storm-form->str form :NEVER))))
 
@@ -136,14 +83,11 @@
 
    :transform-fn (clerk/update-val #_clerk/mark-presented
                   (fn [{:keys [thread-id timeline opts] :as value}]
-                    (println "********* meta value: " (meta value))
-                    (println "********* value: " (prn value))
                     (let [opts (merge opts (select-keys [:include-fn-names] (meta value)))
                           tl (->> (fn-calls timeline opts)
                                   (map (partial enrich-with-form thread-id))
 
                                   (take 8))
-
                           #_(->> timeline
                                  (map index-api/as-immutable)
                                  (filter #(or (= :fn-call (:type %)) #_(= :fn-return (:type %))))
@@ -161,7 +105,6 @@
                                                  (partial walk/postwalk (fn [val] (if (fn? val)
                                                                                     (demunge-fn val)
                                                                                     val))))))]
-
                       (clerk/html {::clerk/width :wide}
                                   (for [entry (->> tl #_reverse #_(filter #(= :fn-call (:type %))))]
                                     [:div.flex.flex-col
@@ -182,26 +125,23 @@
                                         [:div (clerk/with-viewer fn-args-viewer [args-vector (:fn-args entry)])] ])])))))
 
    #_[:div.pl-12 (clerk/row (:fn-args entry))]
-   #_#_:render-fn trace-code-render-fn})
+   :render-fn trace-code-render-fn})
+
+
+
 
 
 
 
 ;; ================================================================================
+;; ================================================================================
+;; ================================================================================
+;; Flowstorm Stepper
 
 
 
 
 
-
-
-(comment
-  (clerk/with-viewer clerk.viewer/map-viewer {:a 1})
-  (clerk.viewer/present {:a 1})
-  (clerk.viewer/present (clerk/with-viewer clerk.viewer/map-viewer {:a 1}))
-
-  (clerk.viewer/apply-viewers  {:a 1})
-  )
 
 (defn stepper-coord-class [form-id coord]
   (format "%d-coord-%s" form-id (str/join "-" coord)))
@@ -215,62 +155,76 @@
     :else ""))
 
 
-(defn print-val [v]
-  (pr-str v)
-#_  (if (map? v)
-    #_(clerk.viewer/apply-viewers  {:a 1})
-    (clerk/with-viewer clerk.viewer/map-viewer v)
-    #_ (clerk/with-viewer clerk.viewer/map-viewer {:a 1})
-    #_(clerk.viewer/present v)
-    (binding [*print-length* 3
-              *print-level* 2]
-      (pr-str v))))
 
+(defn- new-index [] {:presented-values []
+                     :values-idx {}})
 
-(defn- with-presented-result [imm-entry]
-  (assoc imm-entry
-         :result-presented (when true #_((some-fn vector? map?) (:result imm-entry))
-                                 #_(println "*** before calling v/present! on " (class (:result imm-entry)) ": " (pr-str (:result imm-entry)))
-                                 #_(flush)
-                                 #_(clerk.viewer/assign-content-lengths
-                                  (clerk.viewer/present (:result imm-entry)))
-                                 (clerk.viewer/present (:result imm-entry)))
-         :result-class (class (:result imm-entry))))
+(defn- add-to-index! [!values-index value]
+  (let [{:keys [presented-values values-idx]} @!values-index
+        found? (contains? values-idx value)
+        idx (if found? (get values-idx value)
+                (count presented-values))]
+    (when-not found?
+      (swap! !values-index #(-> %
+                                (update-in [:values-idx] assoc value idx)
+                                (update-in [:presented-values] assoc idx (clerk.viewer/present value)))))
+    idx))
 
 (defn serialize-timeline [imm-timeline]
-  (->> imm-timeline
-       (mapv (fn [imm-entry]
-               (case (:type imm-entry)
-                 :fn-call   (update imm-entry :fn-args print-val)
-                 :fn-return (-> imm-entry
-                                (with-presented-result)
-                                (update :result print-val))
-                 :fn-unwind (update imm-entry :throwable print-val)
-                 :bind      (update imm-entry :value print-val)
-                 :expr      (-> imm-entry
-                                (with-presented-result)
-                                (update :result print-val)))))
-       (reduce (fn [{:keys [timeline call-stack]} entry]
-                 (let [callstack (case (:type entry)
-                                   :fn-call (conj call-stack {:fn-name (:fn-name entry)
-                                                              :form-id (:form-id entry)})
-                                   :fn-return (pop call-stack)
-                                   call-stack)
-                       entry (assoc entry :call-stack callstack)]
 
-                   {:timeline (conj timeline entry)
-                    :call-stack callstack}))
 
-               {:timeline [] :call-stack []})
+  (let [!values-index (atom (new-index))
+        _add-to-index! (partial add-to-index! !values-index)
+        timeline (->> imm-timeline
+                      ;; collect and replace all values by their position on an index to avoid duplicates
+                      (mapv (fn [imm-entry]
+                              (case (:type imm-entry)
+                                :fn-call   (update imm-entry :fn-args #(mapv _add-to-index! %) #_print-val)
+                                :fn-return (update imm-entry :result  _add-to-index!)
+                                :fn-unwind (update imm-entry :throwable pr-str)
+                                :bind      (update imm-entry :value _add-to-index!)
+                                :expr      (update imm-entry :result _add-to-index!)
+                                imm-entry)))
 
-       :timeline))
+                      ;; add callstack info to each entry (I guess we could also dedupe these?)
+                      (reduce (fn [{:keys [timeline call-stack]} entry]
+                                (let [callstack (case (:type entry)
+                                                  :fn-call (conj call-stack {:fn-name (:fn-name entry)
+                                                                             :form-id (:form-id entry)})
+                                                  :fn-return (pop call-stack)
+                                                  call-stack)
+                                      entry (assoc entry :call-stack callstack)]
+
+                                  {:timeline (conj timeline entry)
+                                   :call-stack callstack}))
+
+                              {:timeline [] :call-stack []})
+                      :timeline)]
+
+    {:timeline timeline
+     :presented-values (:presented-values @!values-index)}))
+
+
 
 (comment (form-pprinter/pprint-tokens '(fname [arg1 arg2] 123)) )
+
+(defn pre-render-form [form-id form]
+  (let [tokens (form-pprinter/pprint-tokens form)]
+    (into
+     [:div.pl-2.py-2.font-mono.Xcm-content.whitespace-pre]
+     (for [{:keys [kind text coord]} tokens]
+       (case kind
+         :sp " "
+         :nl "\n"
+         :text (if coord
+                 [:span {:class (str (stepper-coord-class form-id coord) " " (stepper-token-class text))} text]
+                 [:span {:class (stepper-token-class text)} text]))))))
+
 (defn pre-render-forms [forms-map]
   (into {} (map (fn [[form-id form]]
                   (let [tokens (form-pprinter/pprint-tokens form)]
                     [form-id (into
-                              [:div.font-mono.cm-content.whitespace-pre.viewer.code-viewer.px-4.py-2]
+                              [:div.pl-2.py-2.font-mono.Xcm-content.whitespace-pre]
                               (for [{:keys [kind text coord]} tokens]
                                 (case kind
                                   :sp " "
@@ -291,7 +245,7 @@
                   clerk/mark-preserve-keys
                   clerk/mark-presented
                   (clerk/update-val
-                   (fn [{:keys [thread-id timeline opts] :as value}]
+                   (fn [{:keys [thread-id timeline values-index code-form opts] :as value}]
                      (let [#_#_opts (merge opts (select-keys [:include-fn-names] (meta value)))
                            forms (reduce (fn [forms {:keys [form-id]}]
                                            (let [{:keys [form/form]} (index-api/get-form form-id)]
@@ -300,89 +254,91 @@
                                          (fn-calls timeline {}))
 
                            ret {:pre-rendered-forms (pre-render-forms forms)
-                                :ser-timeline (let [imm-timeline (mapv index-api/as-immutable timeline)]
-                                                (->> imm-timeline
-                                                     serialize-timeline))}]
+                                :code-form (pre-render-form 0 code-form)
+                                :ser-timeline (->> timeline (mapv index-api/as-immutable) serialize-timeline)}]
+
+                       #_(prn "-----2!!! ")
+                       #_(prn (last (-> ret :ser-timeline :timeline)))
+                       #_(prn "-----3!!! ")
+                       #_(prn (last (-> ret :ser-timeline :presented-values)))
+                       #_(spit "/tmp/ser-timeline.edn" (prn-str (-> ret :ser-timeline)))
+
                        ret))))
 
-   :render-fn '(fn [{:keys [pre-rendered-forms ser-timeline]}]
-                 (reagent.core/with-let [!current-step (reagent.core/atom 0)]
-                   (let [step @!current-step
-                         tl-entry (get ser-timeline step)
+   :render-fn '(fn [{:keys [pre-rendered-forms ser-timeline code-form]}]
+                 (reagent.core/with-let [!current-step (reagent.core/atom 45)
+                                         !forms-el (reagent.core/atom nil)]
+                   (let [{:keys [timeline presented-values]} ser-timeline
+                         step @!current-step
+                         tl-entry (get timeline step)
                          get-form-id (fn [tl-e]
                                        (if (= :fn-call (:type tl-e))
                                          (:form-id tl-e)
-                                         (->> tl-e :fn-call-idx (get ser-timeline) :form-id)))
+                                         (->> tl-e :fn-call-idx (get timeline) :form-id)))
                          visible? (fn [e]
                                     (let [rect (.getBoundingClientRect e)]
                                       (<= 0 (.-top rect) (.-bottom rect) (.-innerHeight js/window))))
                          stepper-coord-class (fn [form-id coord]
                                                (str form-id "-coord-" (clojure.string/join "-" coord)))
+
+                         highlight-styles "background-color: rgb(253 230 138); border-bottom: solid 1px gray; font-weight: bold;" ;; TODO: use a class?
                          re-highlight (fn [prev-step next-step]
-                                        (let [prev-e (get ser-timeline prev-step)
-                                              next-e (get ser-timeline next-step)
+                                        (let [prev-e (get timeline prev-step)
+                                              next-e (get timeline next-step)
                                               prev-class (stepper-coord-class (get-form-id prev-e) (:coord prev-e))
                                               next-class (stepper-coord-class (get-form-id next-e) (:coord next-e))
-                                              prev-dom-elems (js/document.getElementsByClassName prev-class)
-                                              next-dom-elems (js/document.getElementsByClassName next-class)]
+                                              prev-dom-elems (.getElementsByClassName (.-firstElementChild @!forms-el) prev-class)
+                                              #_(js/document.getElementsByClassName prev-class)
+                                              next-dom-elems (.getElementsByClassName (.-firstElementChild @!forms-el) next-class)
+                                              #_(js/document.getElementsByClassName next-class)]
                                           (doseq [e prev-dom-elems]
                                             (.removeAttribute e "style"))
                                           (doseq [e next-dom-elems]
-                                            (.setAttribute e "style" "background-color: rgb(253 230 138); border-bottom: solid 1px gray; font-weight: bold;")
-                                            #_(.setClass e "bg-amber-200")
-                                            )
+                                            (.setAttribute e "style" highlight-styles)
+                                            #_(.setClass e "bg-amber-200"))
                                           (let [focus-e (first next-dom-elems)]
                                             (when-not (visible? focus-e)
-                                              (.scrollIntoView focus-e)))))]
-                     [:div.w-full.max-w-wide.pl-10
-                      [:div.font-sans "Call stack"]
-                      [:div.forms.viewer.text-xs.code-viewer
-                       (for [form-id (->> (:call-stack tl-entry) reverse (map :form-id) dedupe)]
-                         [:div.form.cm-editor.border-t-2
-                          (pre-rendered-forms form-id)])
-                       #_(for [{:keys [form-id fn-name]} (:call-stack tl-entry)]
-                           [:div.form fn-name
-                            (pre-rendered-forms form-id)])
-                       #_(for [[form-id form-pre] pre-rendered-forms]
-                           [:div.form
+                                              (.scrollIntoView focus-e (clj->js {:behavior "smooth" :block "nearest" :inline "start"}))))))]
 
-                            form-pre])]
+                     [:div.px-12.justify-stretch.grid.grid-cols-5.gap-2
+                      [:div.col-span-3
+                       [:div.font-sans "Call stack"]
+                       [:div.forms.viewer.text-xs.code-viewer.pl-4
+                        {:ref (fn [el] (reset! !forms-el el))}
 
-                      [:div#stepper.border-2.border-solid.border-indigo-500.shadow-2xl.rounded-md.bg-white.flex.flex-col.fixed
-                       {:style {:bottom 15 :right 15 :width 600 :height 700 :z-index 10000}}
+                        (for [form-id (->> (:call-stack tl-entry) reverse (map :form-id) dedupe)]
+                          [:div.form.cm-editor.border-t-2.max-h-96.overflow-y-auto
+                           (pre-rendered-forms form-id)])
+                        [:div.form.cm-editor.border-t-2
+                         {:style {:background-color "rgb(253 230 138)"}} ;; border-bottom: solid 1px gray; font-weight: bold;
+                         code-form]
+                        #_[:div.border-t-2
+                           (nextjournal.clerk.render/render-code (str code-form) {:language "clojure"})] ]]
+
+                      [:div#stepper.border-2.border-solid.border-indigo-500.rounded-md.bg-white.flex.flex-col.col-span-2
+                       #_{:style {:bottom 15 :right 15 :width 600 :height 700 :z-index 10000}}
+                       {:style {:height 700}}
 
                        [:div#stepper-val.h-full.w-full.overflow-auto.grow.font-sans.text-sm
-                        #_[:div.val (:result tl-entry)]
-                        #_[:div.val (prn-str (:result-presented tl-entry))]
-                        #_[:div.val [nextjournal.clerk.render/inspect (:result tl-entry)]]
-                        #_[:h3 "type: " (:type tl-entry)]
-                        #_[:h3 "keys: " (clojure.string/join (keys tl-entry) ", ")]
-                        #_[:h4 "string :result"]
-                        #_[:pre (str (:result tl-entry))]
-                        #_[:h4 "inspect-presented :result-presented"]
+
                         [:div#stepper-val-header.bg-slate-200.p-2.rounded-t-md
                          (case (:type tl-entry)
                            :fn-call [:div "Calling " [:span.font-mono.text-xs (str "(" (:fn-name tl-entry) " ... )")]]
-                           :fn-return [:div "Returned by " [:span.font-mono.text-xs (str "(" (->> (:fn-call-idx tl-entry) (get ser-timeline) (:fn-name)) " ... )")]]
+                           :fn-return [:div "Returned by " [:span.font-mono.text-xs (str "(" (->> (:fn-call-idx tl-entry) (get timeline) (:fn-name)) " ... )")]]
                            nil)]
 
                         [:div#stepper-val-body.p-2
-                         (when (:result-presented tl-entry)
-                           [nextjournal.clerk.render/inspect-presented
-                            (-> #_(nextjournal.clerk.render/->expanded-at true (:result-presented tl-entry))
-                             (:result-presented tl-entry)
-                                (update :nextjournal/render-opts assoc :auto-expand-results? true))])]
-
-                        (when false ;; debug
-                          [:hr]
-                          [:pre (prn-str (dissoc tl-entry :result-presented :result :fn-args))])
-
-                        #_#_[:h4 ":result-class"] [:pre (str (:result-class tl-entry))]
-
-                        #_#_[:h4 "prn-str :result-presented"]
-                          [:pre (prn-str (:result-presented tl-entry))]
-
-                        #_#_[:h4 "inspect :result"] [nextjournal.clerk.render/inspect (:result tl-entry)]]
+                         (let [presented-value (get presented-values (:result tl-entry))]
+                           [:div
+                            (when presented-value
+                              [nextjournal.clerk.render/inspect-presented presented-value])
+                            #_[:div
+                               [:h4 "tl entry"]
+                               [:pre (prn-str tl-entry)]
+                               [:h4 "presented-value"]
+                               [:pre (prn-str presented-value)]
+                               [:h4 "presented-values"]
+                               [:pre (prn-str presented-values)]] ])] ]
 
                        [:div#stepper-toolbar.p-2.w-full.flex.justify-between.font-medium.font-sans.text-sm.bg-slate-200.rounded-b-md
                         [:div.flex.gap-2
@@ -396,12 +352,13 @@
                                         (swap! !current-step inc)
                                         (re-highlight prev-step @!current-step))}
                           "Next"]]
-                        [:div.py-1 (str "Step " step " of " (count ser-timeline))]]]])))})
+                        [:div.py-1 (str "Step " step " of " (count timeline))]]]])))})
+
 
 (defonce _init_storm (index-api/start))
 
 
-(defn do-trace [the-fn opts]
+(defn do-trace [the-fn code-form opts]
 
   (let [thread-id (.getId (Thread/currentThread))]
     (debuggers-api/clear-recordings)
@@ -412,7 +369,9 @@
     (flow-storm.runtime.debuggers-api/set-recording false)
 
     {:thread-id thread-id
-     :timeline (take 200 (index-api/get-timeline thread-id))
+     :timeline (take 100 (index-api/get-timeline thread-id))
+     #_#_:timeline (index-api/get-timeline thread-id)
+     :code-form code-form
      :opts opts} ))
 
 
@@ -423,8 +382,7 @@
 ;;     (do-trace the-fn opts)))
 
 (defmacro show-trace [opts body]
-  `(do-trace (fn []  ~body) ~opts))
-
+  `(do-trace (fn []  ~body) (quote ~body) ~opts))
 
 
 (comment
