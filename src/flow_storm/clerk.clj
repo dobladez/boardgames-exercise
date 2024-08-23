@@ -156,25 +156,29 @@
 
 
 
-(defn- new-index [] {:presented-values []
+(defn- new-index [] {:values []
                      :values-idx {}})
 
-(defn- add-to-index! [!values-index value]
-  (let [{:keys [presented-values values-idx]} @!values-index
+(defn- add-to-index! [!values-index trans-fn value]
+  (let [{:keys [values values-idx]} @!values-index
         found? (contains? values-idx value)
         idx (if found? (get values-idx value)
-                (count presented-values))]
+                (count values))]
     (when-not found?
       (swap! !values-index #(-> %
                                 (update-in [:values-idx] assoc value idx)
-                                (update-in [:presented-values] assoc idx (clerk.viewer/present value)))))
+                                (update-in [:values] assoc idx (trans-fn value)))))
     idx))
 
 (defn serialize-timeline [imm-timeline]
 
 
   (let [!values-index (atom (new-index))
-        _add-to-index! (partial add-to-index! !values-index)
+        _add-to-index! (partial add-to-index! !values-index clerk.viewer/present)
+        !callstack-index (atom (new-index))
+        _add-to-callstack-index! (partial add-to-index! !callstack-index identity)
+        !callstack-entries-index (atom (new-index))
+        _add-to-callstack-entries-index! (partial add-to-index! !callstack-entries-index identity)
         timeline (->> imm-timeline
                       ;; collect and replace all values by their position on an index to avoid duplicates
                       (mapv (fn [imm-entry]
@@ -186,23 +190,26 @@
                                 :expr      (update imm-entry :result _add-to-index!)
                                 imm-entry)))
 
-                      ;; add callstack info to each entry (I guess we could also dedupe these?)
-                      (reduce (fn [{:keys [timeline call-stack]} entry]
+                      (reduce (fn [{:keys [timeline callstack]} entry]
                                 (let [callstack (case (:type entry)
-                                                  :fn-call (conj call-stack {:fn-name (:fn-name entry)
-                                                                             :form-id (:form-id entry)})
-                                                  :fn-return (pop call-stack)
-                                                  call-stack)
-                                      entry (assoc entry :call-stack callstack)]
+                                                  :fn-call (conj callstack (_add-to-callstack-entries-index!
+                                                                             {:fn-name (:fn-name entry)
+                                                                              :form-id (:form-id entry)}))
+                                                  :fn-return (pop callstack)
+                                                  callstack)
+                                      entry (assoc entry :callstack (_add-to-callstack-index! callstack))]
 
                                   {:timeline (conj timeline entry)
-                                   :call-stack callstack}))
+                                   :callstack callstack}))
 
-                              {:timeline [] :call-stack []})
+                              {:timeline [] :callstack []})
                       :timeline)]
 
     {:timeline timeline
-     :presented-values (:presented-values @!values-index)}))
+     :presented-values (:values @!values-index)
+     :callstacks (:values @!callstack-index)
+     :callstack-entries (:values @!callstack-entries-index)
+     }))
 
 
 
@@ -261,14 +268,14 @@
                        #_(prn (last (-> ret :ser-timeline :timeline)))
                        #_(prn "-----3!!! ")
                        #_(prn (last (-> ret :ser-timeline :presented-values)))
-                       #_(spit "/tmp/ser-timeline.edn" (prn-str (-> ret :ser-timeline)))
+                       (spit "/tmp/ser-timeline.edn" (prn-str (-> ret :ser-timeline)))
 
                        ret))))
 
    :render-fn '(fn [{:keys [pre-rendered-forms ser-timeline code-form]}]
-                 (reagent.core/with-let [!current-step (reagent.core/atom 45)
+                 (reagent.core/with-let [!current-step (reagent.core/atom 1)
                                          !forms-el (reagent.core/atom nil)]
-                   (let [{:keys [timeline presented-values]} ser-timeline
+                   (let [{:keys [timeline presented-values callstacks callstack-entries]} ser-timeline
                          step @!current-step
                          tl-entry (get timeline step)
                          get-form-id (fn [tl-e]
@@ -306,14 +313,14 @@
                        [:div.forms.viewer.text-xs.code-viewer.pl-4
                         {:ref (fn [el] (reset! !forms-el el))}
 
-                        (for [form-id (->> (:call-stack tl-entry) reverse (map :form-id) dedupe)]
+                        (for [form-id (->> tl-entry :callstack (get callstacks) (map callstack-entries) reverse (map :form-id) dedupe)]
                           [:div.form.cm-editor.border-t-2.max-h-96.overflow-y-auto
                            (pre-rendered-forms form-id)])
                         [:div.form.cm-editor.border-t-2
                          {:style {:background-color "rgb(253 230 138)"}} ;; border-bottom: solid 1px gray; font-weight: bold;
                          code-form]
                         #_[:div.border-t-2
-                           (nextjournal.clerk.render/render-code (str code-form) {:language "clojure"})] ]]
+                           (nextjournal.clerk.render/render-code (str code-form) {:language "clojure"})]]]
 
                       [:div#stepper.border-2.border-solid.border-indigo-500.rounded-md.bg-white.flex.flex-col.col-span-2
                        #_{:style {:bottom 15 :right 15 :width 600 :height 700 :z-index 10000}}
@@ -338,7 +345,7 @@
                                [:h4 "presented-value"]
                                [:pre (prn-str presented-value)]
                                [:h4 "presented-values"]
-                               [:pre (prn-str presented-values)]] ])] ]
+                               [:pre (prn-str presented-values)]]])]]
 
                        [:div#stepper-toolbar.p-2.w-full.flex.justify-between.font-medium.font-sans.text-sm.bg-slate-200.rounded-b-md
                         [:div.flex.gap-2
@@ -369,7 +376,7 @@
     (flow-storm.runtime.debuggers-api/set-recording false)
 
     {:thread-id thread-id
-     :timeline (take 100 (index-api/get-timeline thread-id))
+     :timeline (index-api/get-timeline thread-id)
      #_#_:timeline (index-api/get-timeline thread-id)
      :code-form code-form
      :opts opts} ))
