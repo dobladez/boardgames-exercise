@@ -15,13 +15,16 @@
 
    :jvm-opts ["-Dclojure.storm.instrumentEnable=true"
               #_"-Dclojure.storm.instrumentOnlyPrefixes=boardgames,nextjournal.clerk"
-              "-Dclojure.storm.instrumentOnlyPrefixes=boardgames,scratchpad,walkthrough"]}
+              "-Dclojure.storm.instrumentOnlyPrefixes=boardgames,scratchpad,intro,walkthrough"]}
 
 
   ;; This alias is used by https://clerk.garden/.
   :nextjournal/clerk
   {:exec-fn nextjournal.clerk/build!
    :exec-args {:paths    ["notebooks/*" "src/**" "test/**"]
+               :compile-css true
+               :ssr true
+               :index "notebooks/welcome.clj"
                :out-path "public"}}
 
   :watch

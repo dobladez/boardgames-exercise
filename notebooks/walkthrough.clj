@@ -111,8 +111,8 @@
 
 ;; ## OK. Where do we start? How to model a board?
 
-;; Let's start with the simplest data structure that could represent the problem
-;; at hand. In this case, I with a `board` data structure as vector of
+;; Let's start with the simplest data structure that can represent the problem
+;; at hand. In this case, we can start with a `board` data structure as vector of
 ;; vectors (a matrix), like so:
 
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
@@ -134,35 +134,21 @@
 ;;
 ;; [^no_commas]: a nice thing about Clojure is that you don't need commas to
 ;; separate elements of a vector or list.
-;;
-;; That example above uses Clojure _symbols_. I could have used chars, or keywords
-;; instead. The latter being the most idiomatic:
 
-^{:nextjournal.clerk/visibility {:code :show :result :hide}}
- (def board-2 [[:r :n :b :q :k :b :n :r]
-               [:p :p :p :p :p :p :p :p]
-               [:- :- :- :- :- :- :- :-]
-               [:- :- :- :- :- :- :- :-]
-               [:- :- :- :- :- :- :- :-]
-               [:- :- :- :- :- :- :- :-]
-               [:P :P :P :P :P :P :P :P]
-               [:R :N :B :Q :K :B :N :R]])
+;; Here we use Clojure _symbols_ for each piece. We could have used chars or
+;; keywords instead. We stick with symbols which are easier on the eyes.
 
-;; One point in favor of keywords is that the literal board doesn't have to be
-;; quoted (like symbols do, to avoid evaluation). A point for symbols is that
-;; it's easier on the eyes... I'll stick with symbols.
-;;
-;; It's nice to make it easy to create literal board positions. It's also trivial to
-;; get the piece at a given position coordinate:
+;; It's nice to have literal board positions like that. It's also trivial to get
+;; the piece at a given position coordinate:
 
 (get-in board-1 [0 0])
 
 (get-in board-1 [7 4])
 
 ;; Now... _position_ is just one attribute of a piece. Here we rely on the
-;; letter's case (upper or lower) to represent the color (player actually, for
-;; chess) but other games might need more than 2 colors... and we'll surely need
-;; other attributes, like whether the piece has been moved or not. So, the above
+;; letter's case (upper or lower) to represent the color (player side actually)
+;; but other games might need more than 2 colors... and we'll surely need other
+;; attributes, like whether the piece has been moved or not. So, the above
 ;; representation is handy, yes... and limited.
 
 ;; I ended up representing the board as map, with its dimensions and its set of
@@ -189,15 +175,15 @@
 ;; * `:flags` a set of flags to attach to the piece (like, `:moved?`, or whatever each specific game might need)
 ;;
 ;; [^identical-piece-on-set]: Well, ok ok: two totally identical pieces wouldn't
-;; be allowed on a Set (dupes aren't allowed)... but I won't over-complicate it
-;; for now
+;; be allowed on a Set (sets don't allow duplicates)... but I won't
+;; over-complicate it for now
 ;;
 
-;; The `core` namespace is the generic domain for board games. It's not game-specific.
 ;; Function `core/empty-board` creates a board with the given dimensions:
 
 (core/empty-board 3 3)
 
+;; Note that the `core` namespace is our generic domain for board games. It's not specific to chess.
 
 ;; ## Visualizing our domain
 
@@ -380,10 +366,9 @@
 
 
 ^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
-(clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
-                                            #"candidate-pmoves\*?"
-                                            #"expand-pmove"] }
+(clerk-storm/show-trace {:include-fn-names [#"possible-pmoves" #"candidate-pmoves\*?" #"expand-pmove"] }
   (core/possible-pmoves game-1))
+
 
 
 
@@ -392,7 +377,7 @@
     ;; Here's a viewer that evaluates a piece of code, traces all runtime
     ;; information using ClojureStorm, and shows the main function calls with their
     ;; arguments:
-)
+    )
 
 
 

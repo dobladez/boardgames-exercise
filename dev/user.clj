@@ -7,6 +7,7 @@
   ([opts]
    (let [defaults {:port 7778
                    :watch-paths ["notebooks" #_ "src" #_"test"]
+                   #_#_:index "notebooks/welcome.clj"
                    :browse? true}]
      (clerk/serve!
 
@@ -22,9 +23,13 @@
 
 
 (comment
-  (start!)
-  (clerk/clear-cache!)
-  (stop!)
+  (do
+    (stop!)
+    (clerk/clear-cache!)
+    (start! {:index "notebooks/welcome.clj"
+             :paths ["notebooks/*"]}))
+
+
 
   (nextjournal.clerk/show! 'gameboard)
   (nextjournal.clerk/show! 'nextjournal.clerk.tap)
