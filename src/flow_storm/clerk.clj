@@ -4,6 +4,7 @@
   (:require [boardgames.utils :refer [TAP>]]
             [clojure.walk :as walk]
             [clojure.string :as str]
+            [clojure.pprint :as pp]
             [flow-storm.form-pprinter :as form-pprinter]
             [flow-storm.runtime.indexes.api :as index-api]
             [flow-storm.runtime.debuggers-api :as debuggers-api]
@@ -86,7 +87,6 @@
                     (let [opts (merge opts (select-keys [:include-fn-names] (meta value)))
                           tl (->> (fn-calls timeline opts)
                                   (map (partial enrich-with-form thread-id))
-
                                   (take 8))
                           #_(->> timeline
                                  (map index-api/as-immutable)
@@ -172,7 +172,6 @@
 
 (defn serialize-timeline [imm-timeline]
 
-
   (let [!values-index (atom (new-index))
         _add-to-index! (partial add-to-index! !values-index clerk.viewer/present)
         !callstack-index (atom (new-index))
@@ -193,8 +192,20 @@
                       (reduce (fn [{:keys [timeline callstack]} entry]
                                 (let [callstack (case (:type entry)
                                                   :fn-call (conj callstack (_add-to-callstack-entries-index!
-                                                                             {:fn-name (:fn-name entry)
-                                                                              :form-id (:form-id entry)}))
+                                                                            (let [ret-entry2 (get imm-timeline (inc (:ret-idx entry)))
+                                                                                  ret-entry1 (get imm-timeline (:ret-idx entry))]
+                                                                              {:fn-name (:fn-name entry)
+                                                                               :form-id (:form-id entry)
+                                                                               #_#_:return-form-id (:form-id ret-entry)
+                                                                               #_#_:return-coord (:coord ret-entry)
+                                                                               #_#_:ret-entry1 ret-entry1
+                                                                               #_#_:ret-entry2 ret-entry2
+                                                                               :ret-form-id (:form-id (get imm-timeline (:fn-call-idx ret-entry2)))
+                                                                               :ret-coord (:coord ret-entry2)
+
+                                                                               #_#_:return-coord (:coord ret-entry)
+
+                                                                               :ret-idx (:ret-idx entry)})))
                                                   :fn-return (pop callstack)
                                                   callstack)
                                       entry (assoc entry :callstack (_add-to-callstack-index! callstack))]
@@ -208,8 +219,7 @@
     {:timeline timeline
      :presented-values (:values @!values-index)
      :callstacks (:values @!callstack-index)
-     :callstack-entries (:values @!callstack-entries-index)
-     }))
+     :callstack-entries (:values @!callstack-entries-index)}))
 
 
 
@@ -237,7 +247,7 @@
                                   :sp " "
                                   :nl "\n"
                                   :text (if coord
-                                          [:span {:class (str (stepper-coord-class form-id coord) " " (stepper-token-class text))} text]
+                                          [:span {:class (str/trim (str (stepper-coord-class form-id coord) " " (stepper-token-class text)))} text]
                                           [:span {:class (stepper-token-class text)} text]))))]))
                 forms-map)))
 
@@ -264,11 +274,9 @@
                                 :code-form (pre-render-form 0 code-form)
                                 :ser-timeline (->> timeline (mapv index-api/as-immutable) serialize-timeline)}]
 
-                       #_(prn "-----2!!! ")
-                       #_(prn (last (-> ret :ser-timeline :timeline)))
-                       #_(prn "-----3!!! ")
                        #_(prn (last (-> ret :ser-timeline :presented-values)))
-                       (spit "/tmp/ser-timeline.edn" (prn-str (-> ret :ser-timeline)))
+                       #_(spit "/tmp/ser-timeline1.edn" (with-out-str (pp/pprint (->> timeline (mapv index-api/as-immutable)))))
+                       #_(spit "/tmp/ser-timeline2.edn" (with-out-str (pp/pprint (-> ret :ser-timeline))))
 
                        ret))))
 
@@ -289,23 +297,7 @@
                                                (str form-id "-coord-" (clojure.string/join "-" coord)))
 
                          highlight-styles "background-color: rgb(253 230 138); border-bottom: solid 1px gray; font-weight: bold;" ;; TODO: use a class?
-                         re-highlight (fn [prev-step next-step]
-                                        (let [prev-e (get timeline prev-step)
-                                              next-e (get timeline next-step)
-                                              prev-class (stepper-coord-class (get-form-id prev-e) (:coord prev-e))
-                                              next-class (stepper-coord-class (get-form-id next-e) (:coord next-e))
-                                              prev-dom-elems (.getElementsByClassName (.-firstElementChild @!forms-el) prev-class)
-                                              #_(js/document.getElementsByClassName prev-class)
-                                              next-dom-elems (.getElementsByClassName (.-firstElementChild @!forms-el) next-class)
-                                              #_(js/document.getElementsByClassName next-class)]
-                                          (doseq [e prev-dom-elems]
-                                            (.removeAttribute e "style"))
-                                          (doseq [e next-dom-elems]
-                                            (.setAttribute e "style" highlight-styles)
-                                            #_(.setClass e "bg-amber-200"))
-                                          (let [focus-e (first next-dom-elems)]
-                                            (when-not (visible? focus-e)
-                                              (.scrollIntoView focus-e (clj->js {:behavior "smooth" :block "nearest" :inline "start"}))))))]
+                         highlight-styles-cl {:background-color "rgb(253 230 138)" :border-bottom "solid 1px gray" :font-weight "bold"}]
 
                      [:div.px-12.justify-stretch.grid.grid-cols-5.gap-2
                       [:div.col-span-3
@@ -313,14 +305,46 @@
                        [:div.forms.viewer.text-xs.code-viewer.pl-4
                         {:ref (fn [el] (reset! !forms-el el))}
 
-                        (for [form-id (->> tl-entry :callstack (get callstacks) (map callstack-entries) reverse (map :form-id) dedupe)]
-                          [:div.form.cm-editor.border-t-2.max-h-96.overflow-y-auto
-                           (pre-rendered-forms form-id)])
-                        [:div.form.cm-editor.border-t-2
-                         {:style {:background-color "rgb(253 230 138)"}} ;; border-bottom: solid 1px gray; font-weight: bold;
-                         code-form]
+                        (let [resolved-stack (->> tl-entry :callstack (get callstacks) (map callstack-entries))
+                              highlights (->> resolved-stack
+                                              (reduce
+                                               (fn [highlights stackframe]
+                                                 (if (:ret-form-id stackframe)
+                                                   (conj highlights (stepper-coord-class (:ret-form-id stackframe)
+                                                                                         (:ret-coord stackframe)))
+                                                   highlights))
+                                               #{}))]
+
+                          (->> resolved-stack (map :form-id) dedupe
+                               (reduce (fn [hiccup form-id]
+                                         (conj hiccup
+                                               [:div.form.cm-editor.border-t-2.max-h-96.overflow-y-auto
+                                                #_(pre-rendered-forms form-id)
+                                                (clojure.walk/postwalk
+                                                 (fn [form]
+                                                   (let [current-step-class (stepper-coord-class  (get-form-id tl-entry) (:coord tl-entry))
+                                                         highlight-classes (set (conj highlights current-step-class))]
+                                                     (if (and (map? form)
+                                                              (:class form)
+                                                              (-> (:class form) (clojure.string/split  #" ")
+                                                                  set
+                                                                  (clojure.set/intersection highlight-classes)
+                                                                  not-empty)
+                                                                      ;; "Highlight complete expression, not just parens:":
+                                                              #_(-> (:class form) (clojure.string/split  #" ")
+                                                                    (->>
+                                                                     (some (fn [element-class]
+                                                                             (some #(.startsWith element-class %) highlight-classes))))))
+                                                       (assoc form :style highlight-styles-cl)
+                                                       form)))
+
+                                                 (pre-rendered-forms form-id))]))
+                                       '())))
+
                         #_[:div.border-t-2
                            (nextjournal.clerk.render/render-code (str code-form) {:language "clojure"})]]]
+
+                      ;; ----------------------------
 
                       [:div#stepper.border-2.border-solid.border-indigo-500.rounded-md.bg-white.flex.flex-col.col-span-2
                        #_{:style {:bottom 15 :right 15 :width 600 :height 700 :z-index 10000}}
@@ -351,13 +375,11 @@
                         [:div.flex.gap-2
                          [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600
                           {:on-click #(let [prev-step @!current-step]
-                                        (swap! !current-step dec)
-                                        (re-highlight prev-step @!current-step))}
+                                        (swap! !current-step dec))}
                           "Prev"]
                          [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600
                           {:on-click #(let [prev-step @!current-step]
-                                        (swap! !current-step inc)
-                                        (re-highlight prev-step @!current-step))}
+                                        (swap! !current-step inc))}
                           "Next"]]
                         [:div.py-1 (str "Step " step " of " (count timeline))]]]])))})
 
@@ -371,22 +393,22 @@
     (debuggers-api/clear-recordings)
     (debuggers-api/set-recording true)
 
-    (the-fn)
+    ;; (the-fn)
+    (eval code-form)
 
     (flow-storm.runtime.debuggers-api/set-recording false)
 
+    #_(pp/pprint (->> (fn-calls (index-api/get-timeline thread-id) {})
+                    (take 50)
+                    (map #(index-api/get-form (:form-id %)))
+                    #_(map :form/form)))
     {:thread-id thread-id
+     #_#_:timeline (take 100 (index-api/get-timeline thread-id))
      :timeline (index-api/get-timeline thread-id)
-     #_#_:timeline (index-api/get-timeline thread-id)
      :code-form code-form
-     :opts opts} ))
+     :opts opts}))
 
 
-
-;; (defn code-tracing-view [the-fn opts]
-;;   #_ (do-trace the-fn opts)
-;;   (clerk/with-viewer trace-code-viewer opts
-;;     (do-trace the-fn opts)))
 
 (defmacro show-trace [opts body]
   `(do-trace (fn []  ~body) (quote ~body) ~opts))
