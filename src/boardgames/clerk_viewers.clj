@@ -53,7 +53,7 @@
                                   player-n (if (= (name square)
                                                   (clojure.string/lower-case (name square)))
                                              1 0)]
-                              [:div.inline-block.flex.border-solid.justify-center.items-center.w-8.h-8.leading-8
+                              [:div.inline-block.flex.border-solid.justify-center.w-8.h-8.leading-7
                                {:id (str col-idx "-" row-idx)
                                 :style  {:border-color (condp = (str [col-idx row-idx])
                                                          (str capture-pos) "red"
@@ -103,6 +103,7 @@
 
 #_^{:nextjournal.clerk/visibility {:result :hide}}
 (clerk/add-viewers! [board-viewer])
+
 
 ;; Let's create a board for to test our viewers:
 ^{::clerk/viewer board-viewer
