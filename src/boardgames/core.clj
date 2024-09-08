@@ -67,14 +67,14 @@
 ;;
 ;; ## Operations on a Board
 ;;
-(defn new-board [pieces row-n col-n]
+(defn new-board [row-n col-n pieces]
   (with-meta {:pieces (set pieces)
               :row-n row-n
               :col-n col-n}
     {:tag :boardgames}))
 
 (defn empty-board [n-rows n-columns]
-  (new-board #{} n-rows n-columns))
+  (new-board n-rows n-columns #{}))
 
 (defn board->symbolic [board]
   (let [rows  (:row-n board)
@@ -110,7 +110,7 @@
                     row)))
                 flatten
                 (remove nil?))]
-    (new-board pieces (count symbolic-board) (count (first symbolic-board)))))
+    (new-board (count symbolic-board) (count (first symbolic-board)) pieces)))
 
 (defn pieces-at-pos [board pos]
   (filter #(= pos (:pos %)) (:pieces board)))

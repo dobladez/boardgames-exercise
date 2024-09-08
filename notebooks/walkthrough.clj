@@ -15,77 +15,13 @@
 
             [flow-storm.clerk :as clerk-storm]))
 
-;;
-;; # Exercise in modeling grid-board games
-;;
-;; I started this little "project" after the following two events happened the
-;; same week:
-;;
-;; * I was helping Software Engineering students with an exercise in modeling
-;; the game of Chess and variations of it. Most of them using Java or Kotlin.
-;;
-;; * I was reading chapter 2.4 "Abstracting a Domain" from the book "Software
-;; Design for Flexibility" (by Chris Hanson and Gerald Jay Sussman). Which,
-;; coincidentally, models the game of Checkers and asks to extend it to Chess as
-;; an exercise.[^sdff_book]
-;;
-;; [^sdff_book]: &nbsp; ![image](https://mit-press-us.imgix.net/covers/9780262045490.jpg?auto=format&w=298&dpr=2&q=80)
-;;
-;; ## Intro
+;; # Modeling chess: Code Walkthrough
 
-;; ### Problem statement
-;;
-;; Model the game of chess.  Make the model flexible so that chess variations
-;; can also be implemented (for example, defining special pieces with new
-;; movements). Design it so that a core of the model can be used to implement
-;; other board games, such as Checkers, Tic-Tac-Toe and the like.
-;;
-;; This repo is one posible solution, and this notebook is a walkthrough of the implementation.
-
-;; ### Goal
-;;
-;; The goal of this exercise is purely pedagogical: to learn and teach some
-;; software design concepts, covering the basics of topics such us:
-;;
-;; * Functional programming
-;; * Literate programming
-;; * Interactive (and "moldable") development
-;; * Data-orientation
-;; * Stratified design
-;; * Simplicity
-;; * Immutability
-;; * Clojure
-;;
-
-;; ### Some references
-;;
-;;  * This page you are reading is a [Clerk](https://book.clerk.vision) _notebook_
-;;  * Book: SICP (Structure and Interpretation of Computer Programs) by Abelson and Sussman
-;;  * Book: Software Design for Flexibility (Chris Hanson and Gerald Jay Sussman)
-;;  * Paul Graham's [bottom-up design essay](http://www.paulgraham.com/progbot.html)
-;;  * Lisp: A language for stratified design
-;;  * "Grokking Simplicity" by Eric Normand. A book on functional programming for beginners. I highly recommend it to learn the important practical concepts before delving into types and category theory.
-;;  * [Thinking the Clojure Way](https://www.youtube.com/watch?v=vK1DazRK_a0) a great talk by Rafal Dittwald. It's all in JavaScript despite the title.
-;;
-;; ### Code organization
-;;
-;; Other than Clerk itself, the code has *no* library depedencies, not even for
-;; the graphical widgets to visualize the boards on this notebook. I also tried
-;; to use only basic features of Clojure (no managed refs, multimethods,
-;; protocols, transducers).
-;;
-;; This notebook you are reading is a high-level walkthrough of the implementation.
-;;
-;; The code is organized in the following namespaces:
-
-;; |namespace | description|
-;; |----------|------------|
-;; |[clerk-viewers](/src/boardgames/clerk_viewers) | The graphical widgets to visualize boards and moves on Clerk notebooks |
-;; |[core](/src/boardgames/core/) | generic domain to model board games|
-;; |[chess](/src/boardgames/chess/) | implementation of classic Chess (WIP)|
-;; |[checkers](/src/boardgames/checkers) | implementation of Checkers (_TBD_) |
-;; |[ttt](/src/boardgames/ttt) | implementation of Tic-Tac-Toe  (_TBD_) |
-;;
+;; ---
+;; 1. [Welcome](./welcome)
+;; 1. [Introduction](./intro): Goals. Clojure. Some background and recommended references.
+;; 1. Code Walkthrough 👈 __you are here__
+;; ---
 
 #_(clerk/html [:ol
                [:li [:a {:href (nextjournal.clerk.viewer/doc-url 'boardgames.clerk-viewers)} "clerk-viewers"]]
@@ -95,25 +31,20 @@
                [:li [:a {:href "/src/boardgames/core/"} "core4"]]])
 
  #_^{::clerk/visibility {:code :hide :result :hide}} (clerk/reset-viewers! clerk/default-viewers)
-
- ^{::clerk/visibility {:code :hide :result :hide}} (clerk/add-viewers! [viewers/board-viewer])
-
+ #_^{::clerk/visibility {:code :hide :result :hide}} (clerk/add-viewers! [viewers/board-viewer])
  #_^{:nextjournal.clerk/visibility {:code :hide :result :hide}} (clerk/add-viewers! [viewers/chess-board-viewer])
-
  #_^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
   (clerk/add-viewers! [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer])
 
 
+;; ## How can we model a board?
 
-
-
-;; ---
-
-;; ## OK. Where do we start? How to model a board?
-
-;; Let's start with the simplest data structure that can represent the problem
-;; at hand. In this case, we can start with a `board` data structure as vector of
-;; vectors (a matrix), like so:
+;; We want to model a board for grid-based games (like chess or
+;; checkers). The pieces can be of different types (pawn, rook, etc.) and
+;; colors. Each piece has a position on the board.
+;;
+;; Let's start with the simplest data structure to represent the problem. We can
+;; model a `board` simply as a vector of vectors (a matrix?), like so:
 
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (def board-1 '[[r n b q k b n r]
@@ -125,40 +56,57 @@
                [P P P P P P P P]
                [R N B Q K B N R]])
 
-
-
 ;; Do you see it? With some imagination, that's a chess board at starting
-;; position 🙂. Each element is either a piece or an empty square. I chose
-;; single letters instead of words to make the board easier to visualize. Upper
-;; case for white pieces, lower case for black.[^no_commas]
+;; position 🙂. Each element of the inner vectors is either a piece (a letter)
+;; or an empty square (`-`). Upper case for white pieces, lower case for
+;; black.[^no_commas]
 ;;
-;; [^no_commas]: a nice thing about Clojure is that you don't need commas to
-;; separate elements of a vector or list.
+;; [^no_commas]: a nice thing about Clojure: you don't need commas to separate
+;; elements of a vector or list.
+
+;; That code defines a new _var_ named `board-1` to hold our vector of vectors of symbols.
 
 ;; Here we use Clojure _symbols_ for each piece. We could have used chars or
-;; keywords instead. We stick with symbols which are easier on the eyes.
+;; Clojure _keywords_ instead (which would've been more idiomatic). We'll stick
+;; with symbols which are easier on the eyes.[^symbols_quoting]
+;;
+;; [^symbols_quoting]: NOTE: symbols are commonly used as names for
+;; _variables_ (like `board-1` here). The single quote `'` char at the beginning
+;; of the vector tells Clojure to take the following expression _literally_,
+;; without trying to resolve symbols as variables. If this is confusing, never
+;; mind: think of them as one-character "constants" here.
 
-;; It's nice to have literal board positions like that. It's also trivial to get
-;; the piece at a given position coordinate:
+;; It's nice to have a way to express a board positions as a _literal_
+;; expression like that. This representation also makes it trivial to get the
+;; piece at a given position coordinate:
 
 (get-in board-1 [0 0])
 
 (get-in board-1 [7 4])
 
-;; Now... _position_ is just one attribute of a piece. Here we rely on the
-;; letter's case (upper or lower) to represent the color (player side actually)
-;; but other games might need more than 2 colors... and we'll surely need other
-;; attributes, like whether the piece has been moved or not. So, the above
-;; representation is handy, yes... and limited.
+;; Now... What if we want to track more data about each piece?  _Position_ is
+;; just one attribute of a piece, and here its implied by its location on the
+;; vectors. To represent the color of each piece (player side actually) here we
+;; rely on the letter's case (upper or lower), so we are limited to 2. Although
+;; we don't want to over-design, we'll surely need other attributes to keep
+;; track of, like whether the piece has been moved or not, which is needed in
+;; Chess for certain moves.
 
-;; I ended up representing the board as map, with its dimensions and its set of
-;; pieces. This would be an empty 8x8 board:
+;; So, the above representation is handy... and limited.  What if we just
+;; represent pieces as maps[^clojure_maps], and the board as a map too?. The board would
+;; initially include its dimensions and the set of pieces.  This would be an
+;; empty 8x8 board:
+;; [^clojure_maps]: a data structure to stores key-value pairs. Aka "dictionary", "hashmap", "associative array" in some languages
 
-^{:nextjournal.clerk/visibility {:code :show :result :hide}}
-{:pieces #{}, :row-n 3, :col-n 3}
+^{:nextjournal.clerk/visibility {:code :show :result :hide}
+  ::clerk/auto-expand-results? true}
+{ :pieces #{}
+  :row-n 3
+  :col-n 3 }
 
-;; The value on the `:pieces` key is a set of pieces, where each piece is a map
-;; with its attributes. Here's an example board with a few pieces:
+;; The value on the `:pieces` key is a Set of pieces[^clojure-sets], where each piece is another Map
+;; with its attributes. Here's another board with a few pieces:
+;; [^clojure-sets]: Map literals are written like this in Clojure:  `{...}`. Set literals as: `#{...}`
 
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 {:pieces #{{:type :k, :player 0, :pos [4 2], :flags #{}}
@@ -168,26 +116,55 @@
  :row-n 8
  :col-n 8}
 
-;; * `:type` is the piece type (like `:k` for king, `:p` for pawn). We could use long names here
+;; * `:type` is the piece type (like `:k` for king, `:p` for pawn)
 ;; * `:player` is the player number (0 or 1 for chess). This leaves open the possibility of more than 2 players
-;; * `:pos` the position of the piece on the board. The origin `[0 0]` being the bottom-left square. Side-effect: this allows for
-;;   having more than one piece on the same square (if some game needs that)[^identical-piece-on-set]
+;; * `:pos` the position of the piece on the board. The origin `[0 0]` being the bottom-left square.
 ;; * `:flags` a set of flags to attach to the piece (like, `:moved?`, or whatever each specific game might need)
 ;;
-;; [^identical-piece-on-set]: Well, ok ok: two totally identical pieces wouldn't
-;; be allowed on a Set (sets don't allow duplicates)... but I won't
-;; over-complicate it for now
+;; This representation is more flexible. We can attach any data we might need
+;;   onto our pieces. For instance, if a game needs to keep track of pieces
+;;   outside the board, we could do that by using special values on
+;;   `:pos`... and we could potentially allow more than one piece on the same
+;;   position[^identical-piece-on-set].
+;; [^identical-piece-on-set]: Well, ok smart reader: two totally identical pieces wouldn't
+;; be allowed on a Set (sets don't allow duplicates)... but we'll keep it simple for now
 ;;
 
-;; Function `core/empty-board` creates a board with the given dimensions:
+;; We can write a trival function to create a board with the given dimensions. That's what `core/empty-board` does:
+
+^{:nextjournal.clerk/visibility {:code :show :result :hide}}
+(defn new-board [pieces row-n col-n]
+  {:pieces (set pieces)
+   :row-n row-n
+   :col-n col-n})
+
+^{:nextjournal.clerk/visibility {:code :show :result :hide}}
+(defn empty-board [n-rows n-columns]
+  (new-board #{} n-rows n-columns))
+
+;; Create an empty 3x3 board:
 
 (core/empty-board 3 3)
 
-;; Note that the `core` namespace is our generic domain for board games. It's not specific to chess.
+;; We'll use the [`core`](/src/boardgames/core/) namespace for the code that is generic about the domain
+;; of grid games. And we'll use another namespace for each game, like [`chess`](/src/boardgames/chess/).
 
+;;
 ;; ## Visualizing our domain
+;;
+;; Before going any further: Wouldn't it be nice to see a graphical representation of our boards?
 
-;; Let's write and use a specialized viewer to visualize our boards:
+;; That's the idea behind notebooks and [Clerk](https://book.clerk.vision) in
+;; particular: to build specialized viewers for your problem domain, and
+;; interactive tools to make your code and data easier to work with and
+;; explain[^moldable].
+;; [^moldable]: The big idea here is [Moldable
+;; Development](https://moldabledevelopment.com/), a way of programming through
+;; custom tools built for each problem.
+
+;; So, I wrote a simple viewer to visualize our boards. Let's create a few empty
+;; boards of different sizes to try it out. The resulting data structure renders
+;; on the left, and a graphical view of it on the right:
 ^{::clerk/viewer viewers/side-by-side-board-viewer}
 (core/empty-board 3 3)
 
@@ -198,34 +175,37 @@
 (core/empty-board 8 8)
 
 
-;; That's the idea behind [Clerk](https://book.clerk.vision): build specialized
-;; viewers and interactive tools to make your code and data easier to work with
-;; and explain.
-;;
-;; Let's create a standard chess board on its starting possition. We use
-;; function `initialize-chess-board` from the `chess` namespace.  Now using
-;; a "tabbed" viewer to switch between the plain data structure and the visual
-;; board:
+;; We are not going to go into the boards rendering code right now. If you are curious, feel free to peek into the [`clerk-viewers`](../src/boardgames/clerk_viewers) namespace.[^clerk-viewers-impl]
+;; [^clerk-viewers-impl]: Warning: the implementation of the viewers is a bit messy... needs some clean-up
 
-^{::clerk/viewer viewers/tabbed-board-viewer
-  ::clerk/auto-expand-results? true }
-(def a-chess-board (chess/initiate-chess-board))
+;; Let's create one with a few pieces:
+^{::clerk/viewer viewers/side-by-side-board-viewer}
+(core/new-board 8 8 #{{:type :k, :player 0, :pos [4 2], :flags #{}}
+                      {:type :p, :player 0, :pos [4 3], :flags #{}}
+                      {:type :p, :player 1, :pos [3 4], :flags #{}}
+                      {:type :k, :player 1, :pos [3 5], :flags #{}}} )
 
 
+;; OK. What if we want to create a standard chess board on its starting
+;; possition? That'd be pretty verbose with our new maps representation. It was
+;; short and "visual" with the matrix representation we started with... not
+;; anymore 😕.
 
 ;; ## Alternate representations
 
-
-;; Our new board structure is more flexible, and we have nice graphical
+;; Our new board structure is more flexible, and we now have graphical
 ;; viewers... but I still I miss the simple matrix syntax: It's good to have an
-;; easy way to express _literal_ boards in code without the whole data structure...
+;; easy way to express _literal_ boards in code...
 ;; specially when working at the REPL, or writing unit tests.
 ;;
-;; How about we write a function for that? That's what `core/symbolic->board`
-;; does: it converts our original simple matrix to our newer richer
-;; structure for boards.
+;; This is true for any problem domain: it's always good to make your code as
+;; close as possible to the language of your domain.
 ;;
-;; Let's initialize a board from a symbolic literal value:
+;; What if we had a function for that? I mean, let's write a function that
+;; converts our original simple matrix to our newer richer structure for
+;; boards. That's exactly what function `core/symbolic->board` does.
+;;
+;; Let's initialize a board just like our last one but from a symbolic literal value:
 ^{::clerk/viewer viewers/side-by-side-board-viewer ::clerk/auto-expand-results? true}
 (core/symbolic->board '[[- - - - - - - -]
                         [- - - - - - - -]
@@ -236,27 +216,62 @@
                         [- - - - - - - -]
                         [- - - - - - - -]])
 
-;; And we can go the opposite direction with `core/board->symbolic`, which
-;; converts a board structure to a simplified symbolic representation.
+;; So now we can create a full Chess board at initial position from a compact representation:
+^{::clerk/viewer viewers/side-by-side-board-viewer ::clerk/auto-expand-results? true}
+(core/symbolic->board '[[r n b q k b n r]
+                        [p p p p p p p p]
+                        [- - - - - - - -]
+                        [- - - - - - - -]
+                        [- - - - - - - -]
+                        [- - - - - - - -]
+                        [P P P P P P P P]
+                        [R N B Q K B N R]])
+
+
+;;
+;; Of course, we want to have a function for that: `chess/initialize-chess-board` (in the
+;; [`chess`](/src/boardgames/chess/) namespace). Its implementation is almost exactly
+;; like the last snippet above.
+;;
+;; Let's try it here:
+
+^{::clerk/viewer viewers/tabbed-board-viewer
+  ::clerk/auto-expand-results? true }
+(def a-chess-board (chess/initiate-chess-board))
+
+;;  Note that we are using a "tabbed" viewer this time, which lets you switch
+;; between the plain data structure and the visual board.
+
+;; Of course we'd also want to go the opposite direction, that is: convert a
+;; board structure to the simplified symbolic representation. That's what
+;; `core/board->symbolic` does. Here we convert the starting chess board
+;; position we've just created back into a matrix:
 ^{::clerk/viewer clerk-viewer/code-viewer}
 (def symboard (core/board->symbolic a-chess-board))
 
 
 ;; This technique of having another an alternate representation for an domain
-;; entity is quite common and useful in many cases. Here, for example, What if
-;; we want to shuffle all the pieces on the board? With the matrix
-;; representation it's easy to manipulate the pieces using Clojure's standard
-;; functions:
+;; entity is quite common and useful in many situations.
+
+;; For example: What if we want to shuffle all the pieces on the board? With the
+;; matrix representation it's easy to manipulate the pieces using Clojure's
+;; standard functions... So: we take our rich initial chess board, convert it,
+;; shuffle the pieces, and convert it back:
 ^{::clerk/viewer viewers/tabbed-board-viewer}
-(def a-random-board (->> symboard
+(def a-random-board (->> a-chess-board
+                         core/board->symbolic
                          (apply concat)
                          shuffle
-                         (partition (count symboard))
+                         (partition (:row-n a-chess-board))
                          core/symbolic->board))
 
 
-;; And how about Suffle-chess style starting position?  That is: we shuffle only the first
-;; row, and the last row must be its mirror, so that both players start from an "equal" position:
+;; And how about Shuffle-chess style starting position?  That is: we shuffle only
+;; the first row (behind the pawns), and the last row must be its mirror, so
+;; that both players start from an "equal" army formation:[^fisher_style]
+;; [^fisher_style]: I leave Fisher-style shuffle as an exercise for the reader:
+;; we'd need to iterate on the shuffling until we get a position complying with
+;; fisher's restrictions
 ^{::clerk/viewer viewers/tabbed-board-viewer}
 (let [first-row (shuffle (first symboard))
       last-row (->> first-row (mapv utils/upper-case-keyword))]
@@ -265,40 +280,94 @@
       (assoc (dec (count symboard)) last-row)
       core/symbolic->board))
 
-;; ## Moving pieces
+;; ## Modeling Moves
 
-;; This is the core problem of this domain: How to decide which moves are
-;; valid?. Actually, it's better to model the problem as that of generating
-;; valid moves. So, the question becomes:
+;; We've been playing with pieces, boards and visualizations while avoiding the
+;; real problem: that of modeling the rules of chess.[^procrast] In particular,
+;; modeling piece moves. And how to decide which moves are valid?
+;; [^procrast]: Was that procrastinating? or sharpening the axe? A bit of both?
+;;
+;; We'll tackle the problem as that of
+;; _generating_ valid moves. So, the question becomes:
 ;;
 ;; > _How do we generate all valid moves given a board possition?_
 ;;
-;; In the case of chess, the valid moves for a piece depend on its type. So we'd
-;; like to have a way to code the move-generation logic independently for each
-;; piece type. However, some of them share similar characteristics (moves on
-;; diagonals, or orthogonal, cannot go over other pieces, captures opponent
-;; pieces, etc.), so it'd be nice to code this "behaviors" separately and
-;; combine them to model each one of the piece types.
+;; And this is the crux of this whole exercise.
 ;;
+;; ### Representing Moves
 ;;
-;; ### Generating possible (valid) moves
+;; We will model a move as a simple map. Key `:steps` will contain a list
+;; of (one or more) _steps_. Each step includes the piece it affects and the
+;; resulting board state. The very first step represents the board position at
+;; the start of this move.
 ;;
-;; Before we dig into how to generate the moves, let's see how we'll represent such moves.
+;; Here's a minimal example, using a board containing just two Rooks (using a
+;; small 3x3 board just to save space). The move below represents moving
+;; `:player` 0's Rook (`:r`) from `:pos [0 0]` (bottom-left corner) to `:pos [2
+;; 0]. That's three steps: the initial position plus two steps to the right:
+
+^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/auto-expand-results? true}
+(def example-move
+  {:steps
+   (list
+    {:board
+     {:pieces
+      #{{:type :r, :player 0, :pos [2 0], :flags #{}}
+        {:type :r, :player 1, :pos [2 2], :flags #{}}},
+      :row-n 3,
+      :col-n 3},
+     :piece {:type :R, :player 0, :pos [2 0]},
+     :flags #{}}
+    {:board #_(core/new-board 8 8 #{{:type :r, :player 0, :pos [1 0], :flags #{}}
+                                  {:type :r, :player 1, :pos [7 7], :flags #{}}})
+     {:pieces
+        #{{:type :r, :player 0, :pos [1 0], :flags #{}}
+          {:type :r, :player 1, :pos [2 2], :flags #{}}},
+        :row-n 3,
+        :col-n 3},
+     :piece {:type :R, :player 0, :pos [1 0]},
+     :flags #{}}
+    {:board
+     {:pieces
+      #{{:type :r, :player 0, :pos [0 0], :flags #{}}
+        {:type :r, :player 1, :pos [2 2], :flags #{}}},
+      :row-n 3,
+      :col-n 3},
+     :piece {:type :R, :player 0, :pos [0 0]},
+     :flags #{}})})
+
 ;;
-;; We model a move as a list of (one or more) _steps_. Each step includes the piece
-;; it affects and the resulting board state. The very first step represents the
-;; board position at the start of this move.
+;; Maybe it's easier to see if we render the boards within each step. You may click to expand:
 ;;
-;; While generating possible moves, a move is grown (or _expanded_) one step at
-;; a time. We'll refer to them as `pmoves` (for "partial moves").  A `pmove`
-;; that is not `:finished?` may be expanded with more steps until it is either
-;; discarded (a dead-end, with no valid options) or it becomes `:finished?`.[^partial-moves-idea]
+^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/auto-expand-results? true}
+(clerk/with-viewers (concat [viewers/board-viewer] clerk/default-viewers)
+  example-move)
+
+
+;; And here we introduce a new viewer: one to show a move as a single board. Here's the same move again:
+
+^{::clerk/viewer viewers/board-move-viewer
+  ::clerk/visibility {:code :hide :result :show}}
+example-move
+
+
+;; ### Partial Moves
+
+;; Moves will be constructed one step at a time. We start by creating a basic move
+;; containing only the initial step (_step zero_, the starting position of the
+;; move), and then we call a function to _expand_ the move (that is, to add a new step).
+
+;; We'll call these "partial moves", `pmoves` for short.  A `pmove` that is not
+;; `:finished?` is not yet a valid move, but may be expanded with more steps
+;; until it is either discarded or it becomes `:finished?`.[^partial-moves-idea]
+;
+;; [^partial-moves-idea]: I stole this idea of "partial moves" from Chapter 2.4 of
+;; _"Software Design for Flexibility"_ by Hanson and Sussman
 ;;
-;; [^partial-moves-idea]: This idea of "partial moves" I took from the
-;; book "Software Design for Flexibility"
-;;
-;; Let's create an initial `pmove`, for the Rook in position `[0 0]` (using a
-;; small board here to keep the noise low):
+;; Let's create an initial `pmove` for the Rook in position `[0 0]` (using a
+;; small 3x3 board here to just to save space):
 ;;
 ^{::clerk/viewer viewers/side-by-side-move-viewer}
 (core/new-pmove (core/symbolic->board '[[r - k]
@@ -306,9 +375,20 @@
                                         [R - K]])
                 {:type :R, :player 0, :pos [0 0]})
 
-;; That's a new partial-move, containing only a single step with its starting
+;; That's a new partial move, containing only the initial step with its starting
 ;; board (step zero), and thus it is (obviously) not `:finished`.
 ;;
+
+;; ### Generating Move Steps
+;;
+;; Given the initial partial move above (for a Rook), we'd need a function that
+;; appends a new steps, that is, _expands_ the `pmove`.
+;;
+
+;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖  🔖 🔖 🔖
+
+;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖  🔖 🔖 🔖
+
 ;; The core move-generation logic starts by calling the game-specific rules
 ;; functions with this initial pmove. Each rule function _expands_ this pmove by
 ;; returning a collection of (zero or more) new pmoves, each with an extra step added,
@@ -340,6 +420,17 @@
 ;; The idea of modeling moves as a list of steps will make sense when you dig
 ;; into the implementation the game-specific functions to expand the pmoves.
 
+;; ---
+;;
+;; In the case of chess, the valid moves for a piece depend on its type. So we'd
+;; like to have a way to code the move-generation logic independently for each
+;; piece type. However, some of them share similar characteristics (moves on
+;; diagonals, or orthogonal, cannot go over other pieces, captures opponent
+;; pieces, etc.), so it'd be nice to code this "behaviors" separately and
+;; combine them to model each one of the piece types.
+;;
+;; ---
+;;
 
 
 ;; ## Call stack from `(possible-pmoves ...)`
@@ -358,14 +449,14 @@
 (def game-1 (core/start-game chess/chess-game))
 
 
-^{::clerk/viewer clerk-storm/trace-code-viewer ::clerk/budget nil}
-(clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
-                                            #"candidate-pmoves\*?"
-                                            #"expand-pmove"] }
-  (core/possible-pmoves game-1))
+;; ^{::clerk/viewer clerk-storm/trace-code-viewer ::clerk/budget nil}
+;; (clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
+;;                                             #"candidate-pmoves\*?"
+;;                                             #"expand-pmove"] }
+;;   (core/possible-pmoves game-1))
 
 
-^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
+#_^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
 (clerk-storm/show-trace {:include-fn-names [#"possible-pmoves" #"candidate-pmoves\*?" #"expand-pmove"] }
   (core/possible-pmoves game-1))
 
