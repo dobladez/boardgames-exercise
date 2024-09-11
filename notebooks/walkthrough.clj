@@ -338,7 +338,7 @@
      :flags #{}})})
 
 ;;
-;; Maybe it's easier to see if we render the boards within each step. You may click to expand:
+;; It's easier to see if we render the boards within each step. Here's the same example again (click to expand):
 ;;
 ^{::clerk/visibility {:code :hide :result :show}
   ::clerk/auto-expand-results? true}
@@ -346,14 +346,14 @@
   example-move)
 
 
-;; And here we introduce a new viewer: one to show a move as a single board. Here's the same move again:
+;; And here is new viewer: a compact view of a `pmove` in a single board. Here's the same move again:
 
 ^{::clerk/viewer viewers/board-move-viewer
   ::clerk/visibility {:code :hide :result :show}}
 example-move
 
 
-;; ### Partial Moves
+;; ### Idea: Partial Moves
 
 ;; Moves will be constructed one step at a time. We start by creating a basic move
 ;; containing only the initial step (_step zero_, the starting position of the
@@ -367,13 +367,14 @@ example-move
 ;; _"Software Design for Flexibility"_ by Hanson and Sussman
 ;;
 ;; Let's create an initial `pmove` for the Rook in position `[0 0]` (using a
-;; small 3x3 board here to just to save space):
+;; small 3x3 board to save space):
 ;;
 ^{::clerk/viewer viewers/side-by-side-move-viewer}
-(core/new-pmove (core/symbolic->board '[[r - k]
-                                        [- - -]
-                                        [R - K]])
-                {:type :R, :player 0, :pos [0 0]})
+(def pmove-1
+  (core/new-pmove (core/symbolic->board '[[r - k]
+                                          [- - -]
+                                          [R - K]])
+                  (core/new-piece :r 0 [0 0])))
 
 ;; That's a new partial move, containing only the initial step with its starting
 ;; board (step zero), and thus it is (obviously) not `:finished`.
@@ -381,13 +382,202 @@ example-move
 
 ;; ### Generating Move Steps
 ;;
-;; Given the initial partial move above (for a Rook), we'd need a function that
-;; appends a new steps, that is, _expands_ the `pmove`.
+;; Given the initial partial move above, we want a function that
+;; _expands_ it, that is: that appends a new step to it.
+;;
+;; In chess, the valid possible moves for a piece depend on its type. So we'd
+;; need to implement function for each type (a Rook in this example).
+
+;; Now, here's what I think are the _key insights_ behind the idea of "partial
+;; moves":
+;;
+;; * Our piece-specific functions only deal with generating _one_ single next
+;; step. This will simplify their implementation
+;; * The logic to repeatedly call these functions and collect the
+;; `:finished?` moves is generic: independent from the type of piece, and even
+;; from which game we are implementing
+;;
+;; Let's write a simplistic version of function to expand the `pmove` of a
+;; Rook. We'll do a first baby step (no pun intended 🤡) and only move the piece
+;; one square to the right (ignoring collisions, capturing or board dimensions):
+^{::clerk/visibility {:code :show :result :hide}}
+(defn expand-pmove-rook-right [pmove]
+  (let [last-step (-> pmove :steps first)
+        from-piece (:piece last-step)
+        offset [1 0] ;; one X-coordinate to the right
+        to-piece (update from-piece :pos
+                         (fn shift-position [pos] (mapv + pos offset)))
+        new-step (update-in last-step [:board :pieces]
+                            (fn replace-piece [pieces] (-> pieces
+                                                           (disj from-piece)
+                                                           (conj to-piece))))
+        new-pmove (update-in pmove [:steps] conj new-step)
+        new-pmove-fin (assoc new-pmove :finished true)]
+
+    [new-pmove new-pmove-fin]))
+
+#_ (❶ ❻ ❼ ❾ ❿ ① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩)
+
+;;
+;; Short explanation:
+;;
+;; 1. `offset` is the coordinates vector by which we want shift the piece position (just 1 on the first coordinate)
+;; 1. `to-piece` becomes our piece with the shifted position
+;; 1. `new-step` we create the new step by taking the previous step and replacing its `:piece` with the new one
+;; 1. `new-pmove` append the `new-step` to the original pmove to get our new _expanded_ pmove
+;; 1. `new-pmove-fin` Question: Is our new pmove _finished_? In other words: Is it a valid
+;; complete Rook move? It is! rooks may move one or more squares... so we want
+;; to return two `pmoves` with this new extra step: one as finished, and another
+;; one as unfinished (meaning, we should keep expanding on it)
+
+;; Let's call it:
+^{::clerk/visibility {:code :show :result :hide}}
+(expand-pmove-rook-right pmove-1)
+
+^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/auto-expand-results? true}
+(clerk/with-viewers (concat [viewers/board-viewer] clerk/default-viewers)
+  (expand-pmove-rook-right pmove-1))
+
+;; Here's a _debugger_ view that let's you step through the code execution:
+^{::clerk/viewer clerk-storm/timeline-stepper-viewer
+  ::clerk/width :full
+  ::clerk/visibility {:code :hide :result :show} }
+(clerk-storm/show-trace {:include-fn-names [] }
+  (expand-pmove-rook-right pmove-1))
+
+
+;; Some important observations about that first move-generation function we just
+;; wrote:
+;;
+;; 1. It only moves the piece to the right. What do we need to move it left?
+;; or up or down? Answer: just a different offset vector!. Like,  `[0 1]` to move
+;; up
+
+;; 1. It's for Rook moves only. Or is it?  How many lines of code are specific
+;; to movements of a Rook?. Answer: again, just the `[1 0]` offset! For example,
+;; doing the diagonal up-right movement of a Bishop would work by using offset `[1 1]`
+
+;; 1. We should extract some expression into separate functions to keep our code
+;; _at the same level of abstraction_. Some ideas:
+;;     * `(pmove-move-piece pmove offset)`: create and append a new step
+;;     * `(move-piece from-piece offset)`: shift a piece position
+;;     * `(pmove-finish-and-continue pmove)` return the given pmove plus its
+;; `:finished` version
+;;     * `(expand-pmove-offsets offsets)` to do the logic on multiple _directions_
+
+;; ### Move Constraints and Rules
+
+;; Our simplistic move-generation function always adds an extra step, ignoring
+;; board boundaries and other pieces on the board.
+;;
+;; We need extra checks to discard `pmoves` which don't comply with certain
+;; restrictions, like: the piece went off the board, or it landed on a square
+;; that is already occupied.
+;;
+;; For some pieces (like Rook and Bishop) we have to generate multiple steps for
+;; a move, but on the same direction. Other pieces can do only one step per
+;; move (King and Knight). Pawns are special: only one step, sometimes two.
+;;
+;; What if the step lands on a square occupied by an opponent piece?  In this
+;; case, we need to modify our `pmove` to remove the opponent piece from the
+;; board (and maybe record the capture). Pawns are different, again: they
+;; move in one direction, but capture on another.
+
+
+;; The keep a flexible design, we want to model all these constraints and
+;; behaviors as independent functions operating on `pmoves`. These functions
+;; become the primitives which we can then combine to implement to complete
+;; logic for each piece.
+
+;;
+;; Let's see a how the current (non-naive) implementation of our Rook's function looks like:
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(defn expand-pmove-for-rook [pmove]
+   (->> pmove
+        (expand-pmove-dirs [↑ ↓ ← →])
+        (pmoves-discard #(or (pmove-on-same-player-piece? %)
+                             (pmove-changed-direction? %)))
+        (map pmoves-finish-capturing-opponent-piece)
+        (pmoves-finish-and-continue))))")
+
+;; I hope the code is clear:
+;; 1. expand the pmove on all those offsets (directions)
+;; 1. discard the pmove's which land on the same player's piece, or change direction (Rooks can only move straight)
+;; 1. enrich pmoves which capture an opponent piece
+;; 1. for all remaining pmoves, clone them to return a version with `:finished? false` and `:finished? true`
+
+
+;; The implementation of Bishop and Queen is pretty much identical to the
+;; Rook. So let's peak at the Knight:
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(defn expand-pmove-for-knight [pmove]
+      (->> pmove
+           (expand-pmove-dirs (core/flip-and-rotations [1 2]))
+           (pmoves-discard (some-fn (partial pmove-over-max-steps? 1)
+                                    pmove-on-same-player-piece?))
+           (map pmoves-finish-capturing-opponent-piece)
+           (pmoves-finish-and-continue)))")
+
+;; It only differs on the offsets, and in that it restricts max steps to 1.[^knight]
+;; `flip-and-rotations` expands the given offset by first mirroring it
+;; horizontally, and then generating four 90-degree rotations:
+;; [^knight]: If you are surprised by the fact that there's no need for code about "jumping pieces", you are not the first one
+
+(core/flip-and-rotations [1 2])
+
+
+;; As I worked on implementing most rules of chess, the general pattern for each
+;; move-generation function follows this shape:
+;;
+;; 1. _Expand_: For the given `pmove`, generate a new one for each of the offsets supported by the piece type
+;; 1. _Discard_: those `pmoves` that don't pass either one of the checks (predicates) specified
+;; 1. _Modify_ (or, _enrich_): update the `pmoves`, for example when capturing, or promoting
+;; 1. _Finish_: Mark some `pmoves` as `:finished`, maybe keeping the original one as unfinished for the next iteration
+
+
+;; Finally, let's look at the pawn. Here I found it simpler to thing the moving
+;; and capturing as two combined "rules", each following the above pattern:
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+"(defn expand-pmove-for-pawn [pmove]
+      (concat
+         (->> pmove ;; Move forward rule
+              (expand-pmove-dirs [↑])
+              (pmoves-discard (some-fn pmove-changed-direction?
+                                       pmove-on-same-player-piece?
+                                       (partial pmove-over-max-steps?
+                                                (if (pmove-piece-1st-move? pmove) 2 1))))
+              (pmoves-finish-and-continue))
+
+         (->> pmove ;; Capture rule
+              (expand-pmove-dirs [↖ ↗])
+              (pmoves-discard #(or (not (pmove-on-other-player-piece? %))
+                                   (pmove-over-max-steps? 1 %)))
+              (map pmoves-finish-capturing-opponent-piece))))
+
+         ;; En-passant rule: TODO
+         ;; Promotion rule: TODO
+")
+
+;; Final comment: some implementations use `some-fn`, and `partial`, others use
+;; `#(or ... )`, just for illustration purposes. The difference is just a matter
+;; of style. You should pick one and be consistent.
 ;;
 
-;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖  🔖 🔖 🔖
+;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
 
-;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖  🔖 🔖 🔖
+;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
+
+;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
+
+;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
+
 
 ;; The core move-generation logic starts by calling the game-specific rules
 ;; functions with this initial pmove. Each rule function _expands_ this pmove by
@@ -398,6 +588,8 @@ example-move
 ;; all the new pmoves that are not `:finished`, until we only have `:finished`
 ;; ones.
 ;;
+;;
+;; ---
 ;; Here's an example of one of the final generated moves for the rook above.  We
 ;; first start a game of chess from a given board position, obtain all possible
 ;; moves, and filter for the ones finishing on square `[0 2]` (top-right)
