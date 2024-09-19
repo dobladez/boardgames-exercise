@@ -281,10 +281,11 @@
                        ret))))
 
    :render-fn '(fn [{:keys [pre-rendered-forms ser-timeline code-form]}]
-                 (reagent.core/with-let [!current-step (reagent.core/atom 1)
+                 (reagent.core/with-let [!current-step (reagent.core/atom 0)
                                          !forms-el (reagent.core/atom nil)]
                    (let [{:keys [timeline presented-values callstacks callstack-entries]} ser-timeline
                          step @!current-step
+                         max-step-n (dec (count timeline))
                          tl-entry (get timeline step)
                          get-form-id (fn [tl-e]
                                        (if (= :fn-call (:type tl-e))
@@ -296,13 +297,14 @@
                          stepper-coord-class (fn [form-id coord]
                                                (str form-id "-coord-" (clojure.string/join "-" coord)))
 
-                         highlight-styles "background-color: rgb(253 230 138); border-bottom: solid 1px gray; font-weight: bold;" ;; TODO: use a class?
-                         highlight-styles-cl {:background-color "rgb(253 230 138)" :border-bottom "solid 1px gray" :font-weight "bold"}]
+                         #_#_highlight-styles "background-color: rgb(253 230 138); border-bottom: solid 1px gray; font-weight: bold;" ;; TODO: use a class?
+                         highlight-styles-cl {:background-color "rgb(253 230 138)" :border-bottom "solid 1px gray" :font-weight "bold" :color "#000000c9"}]
 
-                     [:div.px-12.justify-stretch.grid.grid-cols-5.gap-2
+                     [:div.justify-stretch.grid.grid-cols-5.border-2.border-solid.border-indigo-500.rounded-md
+                      {}
                       [:div.col-span-3
-                       [:div.font-sans "Call stack"]
-                       [:div.forms.viewer.text-xs.code-viewer.pl-4
+
+                       [:div.forms.viewer.text-xs.XXXXXcode-viewer.bg-slate-100.dark:bg-slate-800.rounded-tl-md
                         {:ref (fn [el] (reset! !forms-el el))}
 
                         (let [resolved-stack (->> tl-entry :callstack (get callstacks) (map callstack-entries))
@@ -318,7 +320,7 @@
                           (->> resolved-stack (map :form-id) dedupe
                                (reduce (fn [hiccup form-id]
                                          (conj hiccup
-                                               [:div.form.cm-editor.border-t-2.max-h-96.overflow-y-auto
+                                               [:div.form.cm-editor.border-b-2.max-h-96.overflow-y-auto
                                                 #_(pre-rendered-forms form-id)
                                                 (clojure.walk/postwalk
                                                  (fn [form]
@@ -330,7 +332,7 @@
                                                                   set
                                                                   (clojure.set/intersection highlight-classes)
                                                                   not-empty)
-                                                                      ;; "Highlight complete expression, not just parens:":
+                                                              ;; "Highlight complete expression, not just parens:":
                                                               #_(-> (:class form) (clojure.string/split  #" ")
                                                                     (->>
                                                                      (some (fn [element-class]
@@ -342,46 +344,58 @@
                                        '())))
 
                         #_[:div.border-t-2
-                           (nextjournal.clerk.render/render-code (str code-form) {:language "clojure"})]]]
+                           (nextjournal.clerk.render/render-code (str code-form) {:language "clojure"})]]
+                       [:div.font-sans.text-sm.text-center.opacity-75.p-2 "⬆ call stack ⬆"]]
 
-                      ;; ----------------------------
+;; ----------------------------
 
-                      [:div#stepper.border-2.border-solid.border-indigo-500.rounded-md.bg-white.flex.flex-col.col-span-2
+                      [:div#stepper.flex.flex-col.col-span-2.rounded-r-md.border-l-2.border-indigo-600
                        #_{:style {:bottom 15 :right 15 :width 600 :height 700 :z-index 10000}}
                        {:style {:height 700}}
 
+                       (let [can-prev? (< 0 @!current-step)
+                             can-next? (< @!current-step max-step-n)]
+                         [:div#stepper-toolbar.p-2.w-full.flex.justify-between.font-medium.font-sans.text-sm.bg-slate-200.dark:bg-slate-700.rounded-tr-md
+
+                          [:div.flex.gap-2
+                           [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600.disabled:opacity-50
+                            {:disabled (not can-prev?)
+                             :on-click #(swap! !current-step (fn [step] (max 0 (dec step))))}
+                            "Prev"]
+                           [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600.disabled:opacity-50
+                            {:disabled (not can-next?)
+                             :on-click #(swap! !current-step (fn [step] (min max-step-n (inc step))))}
+                            "Next"]]
+                          [:div.py-1 (str "Step " (inc step) " of " (inc max-step-n))]])
+
                        [:div#stepper-val.h-full.w-full.overflow-auto.grow.font-sans.text-sm
 
-                        [:div#stepper-val-header.bg-slate-200.p-2.rounded-t-md
-                         (case (:type tl-entry)
-                           :fn-call [:div "Calling " [:span.font-mono.text-xs (str "(" (:fn-name tl-entry) " ... )")]]
-                           :fn-return [:div "Returned by " [:span.font-mono.text-xs (str "(" (->> (:fn-call-idx tl-entry) (get timeline) (:fn-name)) " ... )")]]
-                           nil)]
+                        [:div#stepper-val-header.bg-slate-200.dark:bg-slate-700
+                         (cond (zero? step) [:div.p-2 "Press Prev/Next to step through the code execution back and forth"]
+                               (= step max-step-n)  "Final result:"
+                               :else
+                               (case (:type tl-entry)
+                                 :fn-call [:div.p-2 "Calling " [:span.font-mono.text-xs (str "(" (:fn-name tl-entry) " ... )")]]
+                                 :fn-return [:div.p-2 "Returned by " [:span.font-mono.text-xs (str "(" (->> (:fn-call-idx tl-entry) (get timeline) (:fn-name)) " ... )")]]
+                                 nil))]
 
                         [:div#stepper-val-body.p-2
                          (let [presented-value (get presented-values (:result tl-entry))]
                            [:div
-                            (when presented-value
-                              [nextjournal.clerk.render/inspect-presented presented-value])
+                            (if (zero? @!current-step)
+                              [:div
+                               [:p "Here you will see the value of the "
+                                [:span.p-px {:style highlight-styles-cl} "current"]
+                                " code expression highlighted on the call stack on the left panel"]]
+                              (when presented-value
+                                [nextjournal.clerk.render/inspect-presented presented-value]))
                             #_[:div
                                [:h4 "tl entry"]
                                [:pre (prn-str tl-entry)]
                                [:h4 "presented-value"]
                                [:pre (prn-str presented-value)]
                                [:h4 "presented-values"]
-                               [:pre (prn-str presented-values)]]])]]
-
-                       [:div#stepper-toolbar.p-2.w-full.flex.justify-between.font-medium.font-sans.text-sm.bg-slate-200.rounded-b-md
-                        [:div.flex.gap-2
-                         [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600
-                          {:on-click #(let [prev-step @!current-step]
-                                        (swap! !current-step dec))}
-                          "Prev"]
-                         [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600
-                          {:on-click #(let [prev-step @!current-step]
-                                        (swap! !current-step inc))}
-                          "Next"]]
-                        [:div.py-1 (str "Step " step " of " (count timeline))]]]])))})
+                               [:pre (prn-str presented-values)]]])]]]])))})
 
 
 (defonce _init_storm (index-api/start))
