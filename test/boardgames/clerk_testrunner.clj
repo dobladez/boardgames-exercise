@@ -9,8 +9,6 @@
             [nextjournal.clerk.test :as clerk.test]))
 
 
-
-
 ^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
 (defn run-tests-on-clerk []
   (binding [test/report clerk.test/report]
@@ -22,9 +20,19 @@
 (defonce test-run (run-tests-on-clerk))
 
 
+^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
+(clerk/add-viewers! [viewers/board-viewer])
+
+^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/viewers (concat [clerk.test/test-suite-viewer viewers/board-viewer] clerk/default-viewers)}
+@clerk.test/!test-report-state
+
+
 (clerk/with-viewer clerk.test/test-suite-viewer
   @clerk.test/!test-report-state)
 
+
+
 #_(comment
-  (run-tests-on-clerk)
-  )
+    (run-tests-on-clerk)
+    )

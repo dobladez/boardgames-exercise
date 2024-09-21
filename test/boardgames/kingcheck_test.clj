@@ -10,7 +10,7 @@
 
 (deftest chess-king-test
 
-  (t/expect-moves-2 {:piece :P}
+  (t/expect-chess-moves {:piece :P}
                     ;; Cannot move P, it's pinned by r
                     '[[- - - - -]
                       [- - - - -]
@@ -19,7 +19,7 @@
                       [- - - - -]]
 
                     '[])
-  (t/expect-moves-2 {:piece :K}
+  (t/expect-chess-moves {:piece :K}
                     ;; K cannot move forward
                     '[[- - - - -]
                       [- - - r -]
@@ -33,7 +33,7 @@
                       [K - - - -] [- K - - -] [- - - - -]
                       [- - - - -] [- - - - -] [- - - - -]])
 
-  (t/expect-moves-2 {:piece :p} ;; lower case sets the turn to black
+  (t/expect-chess-moves {:piece :p} ;; lower case sets the turn to black
                     ;; Cannot move p, it's pinned by R
                     '[[- - - - -]
                       [k p - - R]
@@ -43,7 +43,7 @@
 
                     '[])
 
-  (t/expect-moves-2 {:piece :k}
+  (t/expect-chess-moves {:piece :k}
 
                     '[[k - - - -]
                       [- - - - -]

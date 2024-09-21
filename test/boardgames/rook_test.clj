@@ -57,30 +57,48 @@
 
 (deftest chess-rook-moves
 
-  #_ (is (= 1 2))
+  #_(is (= 1 2))
 
   ;; Here we pass the base board and then the expected boards one by one
   ;; Note:  the expected boards must be sorted by [x y] position of the moving piece
-  (t/expect-moves {:piece :R}
+  (t/expect-chess-moves* {:piece :R}
 
-                  '[[p R -]
-                    [- - -]
-                    [- K -]]
+                  '[[k - -]
+                    [p - R]
+                    [- - K]]
 
-                  '[[[R - -] ;; Capturing the pawn
-                     [- - -]
-                     [- K -]]
+                  '[[[k - -] ;; Capturing the pawn
+                     [R - -]
+                     [- - K]]
 
-                    [[p - -]
-                     [- R -]
-                     [- K -]]
+                    [[k - -]
+                     [p R -]
+                     [- - K]]
 
-                    [[p - R]
-                     [- - -]
-                     [- K -]]])
+                    [[k - R]
+                     [p - -]
+                     [- - K]]])
+
+  (t/expect-chess-moves* {:piece :R}
+
+                  '[[- - k]
+                    [R - p]
+                    [K - -]]
+
+                  '[[[R - k]
+                     [- - p]
+                     [K - -]]
+
+                    [[- - k]
+                     [- R p]
+                     [K - -]]
+
+                    [[- - k]
+                     [- - R] ;; <- Capturing the pawn
+                     [K - -]]])
 
   ;; Here the we express the expected boards "horizontally":
-  (t/expect-moves-2 {:piece :R}
+  (t/expect-chess-moves {:piece :R}
                     '[[p R -]
                       [- - -]
                       [- K -]]
@@ -89,7 +107,16 @@
                       [- - -] [- R -] [- - -]
                       [- K -] [- K -] [- K -]])
 
-  (t/expect-moves-2 {:piece :R
+  (t/expect-chess-moves {:piece :R}
+                    '[[- - k]
+                      [R - p]
+                      [K - -]]
+
+                    '[[R - k] [- - k] [- - k]
+                      [- - p] [- R p] [- - R]
+                      [K - -] [K - -] [K - -]])
+
+  (t/expect-chess-moves {:piece :R
                      :extra-checks [{:captures '(:p)} {} {}]}
 
                     '[[p R -]
@@ -100,7 +127,7 @@
                       [- - -] [- R -] [- - -]
                       [- K -] [- K -] [- K -]])
 
-  (t/expect-moves-2 {:piece :R}
+  (t/expect-chess-moves {:piece :R}
                     '[[- - - -]
                       [- - - -]
                       [R - - -]
@@ -111,7 +138,7 @@
                       [- - - -] [- - - -]  [- - - -]   [- R - -] [- - R -] [- - - R]
                       [R - - -] [- - - -]  [- - - -]   [- - - -] [- - - -] [- - - -]])
 
-  (t/expect-moves-2 {:piece :R}
+  (t/expect-chess-moves {:piece :R}
                     '[[- - - - -]
                       [- - - - -]
                       [- - - - -]

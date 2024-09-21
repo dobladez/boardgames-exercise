@@ -10,7 +10,7 @@
 
 (deftest chess-pawn-basic-moves
 
-  (t/expect-moves-2 {:piece :P}
+  (t/expect-chess-moves {:piece :P}
 
                     '[[- - - - -]
                       [- - - R -]
@@ -24,7 +24,7 @@
                       [- - - P -] [- - - P -] [- P - - -]
                       [- - - - -] [- - - - -] [- - - - -]])
 
-  (t/expect-moves-2 {:piece :p} ;; lower case sets the turn to black
+  (t/expect-chess-moves {:piece :p} ;; lower case sets the turn to black
 
                     '[[- - - - -]
                       [- p - - -]
@@ -40,7 +40,7 @@
                       [- - - - -] [- - - - -]])
 
   ;; Test for already moved pawn
-  (t/expect-moves-2 {:piece :P
+  (t/expect-chess-moves {:piece :P
                      :update-board-fn t/flag-all-pieces-moved}
 
                     '[[- - - - -]
@@ -57,26 +57,27 @@
 
 (deftest chess-pawn-capturing-moves
 
-  (t/expect-moves-2 {:piece :P
-                     :extra-checks [{} {} {:captures '(:p)}]}
+  (t/expect-chess-moves {:piece :P
+                           :extra-checks [{} {} {:captures '(:p)}]}
 
-                    '[[- - - - -]
-                      [- - - - -]
-                      [- - p - -]
-                      [- P - - -]
-                      [- - - - -]]
+                          '[[- - - - -]
+                            [- - - - -]
+                            [- - p - -]
+                            [- P - - -]
+                            [- - - - -]]
 
-                    '[[- - - - -] [- - - - -] [- - - - -]
-                      [- - - - -] [- P - - -] [- - - - -]
-                      [- P p - -] [- - p - -] [- - P - -]
-                      [- - - - -] [- - - - -] [- - - - -]
-                      [- - - - -] [- - - - -] [- - - - -]]))
+                          '[[- - - - -] [- - - - -] [- - - - -]
+                            [- - - - -] [- P - - -] [- - - - -]
+                            [- P p - -] [- - p - -] [- - P - -]
+                            [- - - - -] [- - - - -] [- - - - -]
+                            [- - - - -] [- - - - -] [- - - - -]]))
 
+#_
 ^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
 (clerk/add-viewers! [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer])
-
+#_
   ^{:nextjournal.clerk/visibility {:code :hide :result :show}}
-  (t/view-test-case (t/expect-moves-2 {:piece :P
+  (t/view-test-case (t/expect-chess-moves-2 {:piece :P
                                        :extra-checks [{} {} {:captures '(:p)}]}
 
                                       '[[- - - - -]

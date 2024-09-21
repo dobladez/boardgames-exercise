@@ -222,57 +222,28 @@
                    [:td.text-right.font-medium "actual:"]
                    [:td.text-left (viewer/code (pr-str actual))]]
 
-                  #_[:tr
-                     [:td
-                    ;; TODO: robust predicate for boards:
-                      [:pre "Board predicate: "
-                       [:pre (pr-str (seqable? actual))]]]]
+                  #_[:tr [:td [:pre "Actual: " [:pre (pr-str actual)]] [:pre "Expected: " [:pre (pr-str expected)]]]]
 
-                  (when (and (seqable? actual)
-                             (seqable? (second actual)) ;; first is the equal sign
-                             (vector? (second (second actual))) ;; <- board pred here
-                             (vector? (first (second (second actual)))))
-                    (list
-                     #_[:tr.hover:bg-red-100.leading-tight.border-none
-                        [:td.text-right.font-medium "expected boards:"]
-                        [:td.text-left.flex.flex-row.gap-1
+                  (when (try
+                          (and (mapv boardgames.core/symbolic->board actual)
+                               (mapv boardgames.core/symbolic->board expected))
+                          (catch Exception e
+                            false))
+                        (list
+                         (let [expected-boards expected ;; (second (second actual))
+                               actual-boards actual;; (nth (second actual) 2)
+                               [diff-expected diff-actual diff-correct] (map vec (data/diff (set expected-boards) (set actual-boards)))]
+                           (for [m [{:label "Correct: " :boards diff-correct}
+                                    {:label "Expected but missing:" :boards diff-expected}
+                                    {:label "Not Expected:" :boards diff-actual}]
+                                 :when (seq (:boards m))]
 
-                         (->> (second (second actual))
-                              (map boardgames.core/symbolic->board)
-                              (map #(clerk/with-viewer board-viewers/board-viewer %)))]]
-
-                     #_[:tr.hover:bg-red-100.leading-tight.border-none
-                        [:td.text-right.font-medium "actual boards:"]
-                        [:td.text-left.flex.flex-row.gap-1
-
-                         (->> (nth (second actual) 2)
-                              (map boardgames.core/symbolic->board)
-                              (map #(clerk/with-viewer board-viewers/board-viewer %)))]]
-
-                     (let [expected-boards (second (second actual))
-                           actual-boards (nth (second actual) 2)
-                           [diff-expected diff-actual diff-correct] (map vec (data/diff (set expected-boards) (set actual-boards)))]
-                       #_(for [m [{:label "Correct: " :boards diff-correct}
-                                  {:label "Expected (missing):" :boards diff-expected}
-                                  {:label "Not expected:" :boards diff-actual}]]
-                           [:tr.hover:bg-red-100.leading-tight.border-none
-                            #_[:td.text-right.font-medium (:label m)]
-                            [:td.text-left.flex.flex-row.gap-1
-                             (->> (:boards m)
-                                  (map boardgames.core/symbolic->board)
-                                  (map #(clerk/with-viewer board-viewers/board-viewer %)))]])
-
-                       (for [m [{:label "Correct: " :boards diff-correct}
-                                {:label "Expected (missing):" :boards diff-expected}
-                                {:label "Not expected:" :boards diff-actual}]
-                             :when (seq (:boards m))]
-
-                         [:tr.hover:bg-red-100.leading-tight.border-none
-                          [:td.text-right.font-medium.text-black (:label m)]
-                          [:td.text-left.flex.flex-row.gap-1
-                           (->> (:boards m)
-                                (map boardgames.core/symbolic->board)
-                                (map #(clerk/with-viewer board-viewers/board-viewer %)))]]))))]])]
+                             [:tr.hover:bg-red-100.leading-tight.border-none
+                              [:td.text-right.font-medium.text-black (:label m)]
+                              [:td.text-left.flex.flex-row.gap-1
+                               (->> (:boards m)
+                                    (map boardgames.core/symbolic->board)
+                                    (map #(clerk/with-viewer board-viewers/board-viewer %)))]]))))]])]
 
              (when message
                [:em.text-orange-500 message])]
@@ -306,7 +277,11 @@
 (def test-ns-viewer {:transform-fn (viewer/update-val (comp viewer/html test-ns-badge))})
 
 (def test-suite-viewer
-  {:transform-fn (comp viewer/mark-preserve-keys
+  {:pred (fn [v] (let [x (and (map? v) (contains? v :test-nss) (contains? v :summary))]
+                   (println "*********** test-suite-viewer pred: " x)
+                   x
+                   ))
+   :transform-fn (comp viewer/mark-preserve-keys
                        (viewer/update-val
                         (fn [state]
                           (-> state
