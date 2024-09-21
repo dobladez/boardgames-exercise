@@ -367,12 +367,20 @@
                           [:div.flex.gap-2
                            [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600.disabled:opacity-50
                             {:disabled (not can-prev?)
+                             :on-click #(reset! !current-step 0)}
+                            "|<"]
+                           [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600.disabled:opacity-50
+                            {:disabled (not can-prev?)
                              :on-click #(swap! !current-step (fn [step] (max 0 (dec step))))}
                             "Prev"]
                            [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600.disabled:opacity-50
                             {:disabled (not can-next?)
                              :on-click #(swap! !current-step (fn [step] (min max-step-n (inc step))))}
-                            "Next"]]
+                            "Next"]
+                           [:button.px-3.py-1.hover:bg-indigo-50.rounded-full.hover:text-indigo-600.border.border-solid.border-slate-600.disabled:opacity-50
+                            {:disabled (not can-next?)
+                             :on-click #(reset! !current-step max-step-n)}
+                            ">|"]]
                           [:div.py-1 (str "Step " (inc step) " of " (inc max-step-n))]])
 
                        [:div#stepper-val.h-full.w-full.overflow-auto.grow.font-sans.text-sm
@@ -397,13 +405,14 @@
                               (when presented-value
                                 (nextjournal.clerk.render/inspect-presented
                                  (assoc presented-value :nextjournal/expanded-at
-                                        {[] true
-                                         [0 1] true
-                                         [1 1] true
-                                         [2 1] true
-                                         [3 1] true
-                                         [4 1] true
-                                         [5 1] true }))
+                                        {[1 2 1 0] true, [0 2 1] true, [1 2 1] true, [1 2 1 1] true, [] true, [0 2 1 1] true, [0] true, [1] true, [0 2 1 0] true}
+                                        #_{[] true
+                                              [0 1] true
+                                              [1 1] true
+                                              [2 1] true
+                                              [3 1] true
+                                              [4 1] true
+                                              [5 1] true }))
 
                                 #_(update presented-value
                                           :nextjournal/render-opts
