@@ -19,8 +19,8 @@
 (def board-render-fn
 
   '(fn [[board from-pos to-pos captures] {:as opts :keys [path viewer !expanded-at] :or {path []}}]
-     (let [collapsible? (> (count path) 4)
-           expanded? (or (not collapsible?) (get @!expanded-at path))
+     (let [collapsible? false #_ (> (count path) 4)
+           expanded? true #_ (or (not collapsible?) (get @!expanded-at path))
            row-count (if expanded? (count board) 1)
            col-count (count (first board))
            capture-pos (:pos (first captures))
@@ -82,16 +82,11 @@
 (def board-viewer
   {:name `board-viewer
    :pred (fn [maybe-board]
-           (let [b (or (= (-> maybe-board meta :tag) :boardgames)
-                       (and (map? maybe-board)
-                            (contains? maybe-board :col-n)
-                            (contains? maybe-board :row-n)
-                            (contains? maybe-board :pieces)))]
-             #_(when b (do (tap> maybe-board)
-                         (tap> b)
-                         (println maybe-board)
-                         ))
-             b))
+           (or (= (-> maybe-board meta :tag) :boardgames)
+               (and (map? maybe-board)
+                    (contains? maybe-board :col-n)
+                    (contains? maybe-board :row-n)
+                    (contains? maybe-board :pieces))))
    :transform-fn
    (comp clerk/mark-presented (clerk/update-val
                                (fn [board]
