@@ -170,10 +170,12 @@
                                 (update-in [:values] assoc idx (trans-fn value)))))
     idx))
 
-(defn serialize-timeline [imm-timeline]
+(defn serialize-timeline [viewers imm-timeline]
 
   (let [!values-index (atom (new-index))
-        _add-to-index! (partial add-to-index! !values-index clerk.viewer/present)
+        _add-to-index! (partial add-to-index! !values-index #(clerk.viewer/present
+                                                              (clerk/with-viewers viewers %)))
+#_#_        _add-to-index! (partial add-to-index! !values-index clerk.viewer/present)
         !callstack-index (atom (new-index))
         _add-to-callstack-index! (partial add-to-index! !callstack-index identity)
         !callstack-entries-index (atom (new-index))
@@ -258,27 +260,32 @@
 
 (def timeline-stepper-viewer
   {:name `timeline-stepper-viewer
+   :pred (fn [value]  (and (map? value)
+                           (contains? value :thread-id)
+                           (contains? value :timeline)))
    :transform-fn (comp
                   clerk/mark-preserve-keys
                   clerk/mark-presented
-                  (clerk/update-val
-                   (fn [{:keys [thread-id timeline values-index code-form opts] :as value}]
-                     (let [#_#_opts (merge opts (select-keys [:include-fn-names] (meta value)))
-                           forms (reduce (fn [forms {:keys [form-id]}]
-                                           (let [{:keys [form/form]} (index-api/get-form form-id)]
-                                             (assoc forms form-id form)))
-                                         {}
-                                         (fn-calls timeline {}))
+                  (fn [wrapped-value]
+                    (let [viewers (:nextjournal/viewers wrapped-value)
+                          value (:nextjournal/value wrapped-value)
+                          {:keys [thread-id timeline code-form opts]} value]
 
-                           ret {:pre-rendered-forms (pre-render-forms forms)
-                                :code-form (pre-render-form 0 code-form)
-                                :ser-timeline (->> timeline (mapv index-api/as-immutable) serialize-timeline)}]
+                      (let [forms (reduce (fn [forms {:keys [form-id]}]
+                                            (let [{:keys [form/form]} (index-api/get-form form-id)]
+                                              (assoc forms form-id form)))
+                                          {}
+                                          (fn-calls timeline {}))
 
-                       #_(prn (last (-> ret :ser-timeline :presented-values)))
-                       #_(spit "/tmp/ser-timeline1.edn" (with-out-str (pp/pprint (->> timeline (mapv index-api/as-immutable)))))
-                       #_(spit "/tmp/ser-timeline2.edn" (with-out-str (pp/pprint (-> ret :ser-timeline))))
+                            new-value {:pre-rendered-forms (pre-render-forms forms)
+                                       :code-form (pre-render-form 0 code-form)
+                                       :ser-timeline (->> timeline (mapv index-api/as-immutable) (serialize-timeline viewers))}]
 
-                       ret))))
+                        #_(prn (last (-> ret :ser-timeline :presented-values)))
+                        #_(spit "/tmp/ser-timeline1.edn" (with-out-str (pp/pprint (->> timeline (mapv index-api/as-immutable)))))
+                        #_(spit "/tmp/ser-timeline2.edn" (with-out-str (pp/pprint (-> ret :ser-timeline))))
+
+                        (assoc wrapped-value :nextjournal/value new-value)))))
 
    :render-fn '(fn [{:keys [pre-rendered-forms ser-timeline code-form]}]
                  (reagent.core/with-let [!current-step (reagent.core/atom 0)
@@ -372,11 +379,11 @@
 
                         [:div#stepper-val-header.bg-slate-200.dark:bg-slate-700
                          (cond (zero? step) [:div.p-2 "Press Prev/Next to step through the code execution back and forth"]
-                               (= step max-step-n)  "Final result:"
+                               (= step max-step-n)  [:div.p-2 "Final result:"]
                                :else
                                (case (:type tl-entry)
                                  :fn-call [:div.p-2 "Calling " [:span.font-mono.text-xs (str "(" (:fn-name tl-entry) " ... )")]]
-                                 :fn-return [:div.p-2 "Returned by " [:span.font-mono.text-xs (str "(" (->> (:fn-call-idx tl-entry) (get timeline) (:fn-name)) " ... )")]]
+                                 :fn-return [:div.p-2 "Returned from " [:span.font-mono.text-xs (str "(" (->> (:fn-call-idx tl-entry) (get timeline) (:fn-name)) " ... )")]]
                                  nil))]
 
                         [:div#stepper-val-body.p-2
@@ -388,15 +395,19 @@
                                 [:span.p-px {:style highlight-styles-cl} "current"]
                                 " code expression highlighted on the call stack on the left panel"]]
                               (when presented-value
-                                [nextjournal.clerk.render/inspect-presented presented-value]))
-                            #_[:div
-                               [:h4 "tl entry"]
-                               [:pre (prn-str tl-entry)]
-                               [:h4 "presented-value"]
-                               [:pre (prn-str presented-value)]
-                               [:h4 "presented-values"]
-                               [:pre (prn-str presented-values)]]])]]]])))})
+                                (nextjournal.clerk.render/inspect-presented
+                                 (assoc presented-value :nextjournal/expanded-at
+                                        {[] true
+                                         [0 1] true
+                                         [1 1] true
+                                         [2 1] true
+                                         [3 1] true
+                                         [4 1] true
+                                         [5 1] true }))
 
+                                #_(update presented-value
+                                          :nextjournal/render-opts
+                                          assoc :auto-expand-results? true)))])]]]])))})
 
 (defonce _init_storm (index-api/start))
 
@@ -413,9 +424,10 @@
     (flow-storm.runtime.debuggers-api/set-recording false)
 
     #_(pp/pprint (->> (fn-calls (index-api/get-timeline thread-id) {})
-                    (take 50)
-                    (map #(index-api/get-form (:form-id %)))
-                    #_(map :form/form)))
+                      (take 50)
+                      (map #(index-api/get-form (:form-id %)))
+                      #_(map :form/form)))
+
     {:thread-id thread-id
      #_#_:timeline (take 100 (index-api/get-timeline thread-id))
      :timeline (index-api/get-timeline thread-id)
