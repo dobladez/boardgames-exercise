@@ -1,8 +1,9 @@
 ^{:nextjournal.clerk/visibility {:code :hide :result :show}}
 (ns walkthrough
   {:nextjournal.clerk/toc true}
-  (:require [clojure.string :as str]
-            [clojure.edn :as edn]
+  (:require [clojure.edn :as edn]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as clerk-viewer]
             [nextjournal.clerk.test :as clerk.test]
@@ -162,6 +163,11 @@
 ;; Development](https://moldabledevelopment.com/), a way of programming through
 ;; custom tools built for each problem.
 
+;; **💡Tip:** Spend time dreaming-up new tools to make your job easier, less
+;; error-prone, more "explainable", visual, easiert to monitor, etc. In my
+;; experience, most of us developers do not spend enough time working on our own
+;; tools... we just work with what's already available to us.
+
 ;; So, I wrote a simple viewer to visualize our boards. Let's create a few empty
 ;; boards of different sizes to try it out. The resulting data structure renders
 ;; on the left, and a graphical view of it on the right:
@@ -198,7 +204,7 @@
 ;; easy way to express _literal_ boards in code...
 ;; specially when working at the REPL, or writing unit tests.
 ;;
-;; This is true for any problem domain: it's always good to make your code as
+;; **💡Tip:** This is true for any problem domain: it's always good to make your code as
 ;; close as possible to the language of your domain.
 ;;
 ;; What if we had a function for that? I mean, let's write a function that
@@ -296,17 +302,20 @@
 ;;
 ;; ### Representing Moves
 ;;
-;; We will model a move as a simple map. Key `:steps` will contain a list
-;; of (one or more) _steps_. Each step includes the piece it affects and the
-;; resulting board state. The very first step represents the board position at
-;; the start of this move.
+;; We will model a move as a list of _steps_. Each step includes the piece it
+;; affects and the resulting board state. The very first step represents the
+;; board position at the start of the move.[^tracking-steps]
+;; [^tracking-steps]: Keeping track of each step is useful for the
+;; move-generation logic, as we'll soon see
 ;;
-;; Here's a minimal example, using a board containing just two Rooks (using a
-;; small 3x3 board just to save space). The move below represents moving
-;; `:player` 0's Rook (`:r`) from `:pos [0 0]` (bottom-left corner) to `:pos [2
-;; 0]. That's three steps: the initial position plus two steps to the right:
+;; Here's an example move, using a small board containing just two Rooks. The
+;; structure below represents moving `:player 0`'s Rook (`:r`) from `:pos [0
+;; 0]` (bottom-left corner) to `:pos [2 0]` (bottom-right). That's three steps:
+;; the initial position plus two steps to the right. Rendering only the boards
+;; within each step (click to expand):
 
-^{::clerk/visibility {:code :hide :result :show}
+
+^{::clerk/visibility {:code :hide :result :hide}
   ::clerk/auto-expand-results? true}
 (def example-move
   {:steps
@@ -337,18 +346,13 @@
      :piece {:type :R, :player 0, :pos [0 0]},
      :flags #{}})})
 
-;;
-;; It's easier to see if we render the boards within each step. Here's the same example again (click to expand):
-;;
 ^{::clerk/visibility {:code :hide :result :show}
   ::clerk/auto-expand-results? true}
 (clerk/with-viewers (concat [viewers/board-viewer] clerk/default-viewers)
   example-move)
 
-
-;; And here is new viewer: a compact view of a `pmove` in a single board. Here's the same move again:
-
-^{::clerk/viewer viewers/board-move-viewer
+;; Here we introduce a more compact viewer for moves, showing all steps in a single board. Here's the same move again:
+^{::clerk/viewer viewers/side-by-side-move-viewer
   ::clerk/visibility {:code :hide :result :show}}
 example-move
 
@@ -368,25 +372,31 @@ example-move
 ;;
 ;; Let's create an initial `pmove` for the Rook in position `[0 0]` (using a
 ;; small 3x3 board to save space):
-;;
-^{::clerk/viewer viewers/side-by-side-move-viewer}
-(def pmove-1
-  (core/new-pmove (core/symbolic->board '[[r - k]
-                                          [- - -]
-                                          [R - K]])
-                  (core/new-piece :r 0 [0 0])))
 
-;; That's a new partial move, containing only the initial step with its starting
-;; board (step zero), and thus it is (obviously) not `:finished`.
+^{::clerk/visibility {:code :show :result :hide}}
+(def test-board (core/symbolic->board '[[r - k]
+                                        [- - -]
+                                        [R - K]]))
+
+
+^{::clerk/visibility {:code :show :result :show}
+  ::clerk/viewers (concat [viewers/board-viewer] clerk/default-viewers)
+  ::clerk/auto-expand-results? true}
+(def pmove-1 (core/new-pmove test-board
+                             (core/new-piece :r 0 [0 0])))
+
+;; That's a new bare partial move. Since it only contains the initial step with its starting
+;; board (step zero), it's (obviously) not _finished_ ( `:finished? false` ).
 ;;
 
-;; ### Generating Move Steps
+;; ### Expanding Partial Moves
 ;;
-;; Given the initial partial move above, we want a function that
-;; _expands_ it, that is: that appends a new step to it.
+;; Given the initial partial move above, we want a function that _expands_
+;; it. That is: we need a function that receives a `pmove` and returns one or
+;; more `pmove`'s with an extra step added to them.
 ;;
-;; In chess, the valid possible moves for a piece depend on its type. So we'd
-;; need to implement function for each type (a Rook in this example).
+;; In chess, the valid possible moves for a piece depend on its type. So we'll
+;; implement a function for each type (a Rook in this example).
 
 ;; Now, here's what I think are the _key insights_ behind the idea of "partial
 ;; moves":
@@ -397,22 +407,23 @@ example-move
 ;; `:finished?` moves is generic: independent from the type of piece, and even
 ;; from which game we are implementing
 ;;
-;; Let's write a simplistic version of function to expand the `pmove` of a
-;; Rook. We'll do a first baby step (no pun intended 🤡) and only move the piece
-;; one square to the right (ignoring collisions, capturing or board dimensions):
+;; Let's write our first function to expand the `pmove` of a Rook. We'll do a first
+;; baby _step_ (no pun intended 🤡): we'll move the piece one square to the
+;; right (ignoring collisions, capturing, and board dimensions):
 ^{::clerk/visibility {:code :show :result :hide}}
-(defn expand-pmove-rook-right [pmove]
+(defn expand-pmove-rook-v1 [pmove]
   (let [last-step (-> pmove :steps first)
         from-piece (:piece last-step)
         offset [1 0] ;; one X-coordinate to the right
-        to-piece (update from-piece :pos
-                         (fn shift-position [pos] (mapv + pos offset)))
-        new-step (update-in last-step [:board :pieces]
-                            (fn replace-piece [pieces] (-> pieces
-                                                           (disj from-piece)
-                                                           (conj to-piece))))
+        to-piece (update from-piece :pos #(mapv + % offset))
+        new-step (-> last-step
+                     (assoc :piece to-piece)
+                     (update-in [:board :pieces]
+                                (fn replace-piece [pieces] (-> pieces
+                                                               (disj from-piece)
+                                                               (conj to-piece)))))
         new-pmove (update-in pmove [:steps] conj new-step)
-        new-pmove-fin (assoc new-pmove :finished true)]
+        new-pmove-fin (assoc new-pmove :finished? true)]
 
     [new-pmove new-pmove-fin]))
 
@@ -421,95 +432,406 @@ example-move
 ;;
 ;; Short explanation:
 ;;
-;; 1. `offset` is the coordinates vector by which we want shift the piece position (just 1 on the first coordinate)
+;; 1. `offset` is the vector by which we want to shift the piece position (here just `+1` on the first coordinate)
 ;; 1. `to-piece` becomes our piece with the shifted position
 ;; 1. `new-step` we create the new step by taking the previous step and replacing its `:piece` with the new one
 ;; 1. `new-pmove` append the `new-step` to the original pmove to get our new _expanded_ pmove
 ;; 1. `new-pmove-fin` Question: Is our new pmove _finished_? In other words: Is it a valid
 ;; complete Rook move? It is! rooks may move one or more squares... so we want
 ;; to return two `pmoves` with this new extra step: one as finished, and another
-;; one as unfinished (meaning, we should keep expanding on it)
+;; one as unfinished (meaning, we may keep expanding on it)
 
-;; Let's call it:
-^{::clerk/visibility {:code :show :result :hide}}
-(expand-pmove-rook-right pmove-1)
+;; Let's call it. Here's the code _debugger_ view that let's you step through
+;; the code execution. Feel free to go straight to the end to see the final
+;; result:
 
-^{::clerk/visibility {:code :hide :result :show}
-  ::clerk/auto-expand-results? true}
-(clerk/with-viewers (concat [viewers/board-viewer] clerk/default-viewers)
-  (expand-pmove-rook-right pmove-1))
 
-;; Here's a _debugger_ view that let's you step through the code execution:
-^{::clerk/viewer clerk-storm/timeline-stepper-viewer
+#_(comment
+    ^{::clerk/visibility {:code :show :result :show}
+      ::clerk/viewers (concat [viewers/board-viewer] clerk/default-viewers)
+      ::clerk/auto-expand-results? true}
+    (expand-pmove-rook-v1 pmove-1))
+
+^{::clerk/viewers (concat [clerk-storm/timeline-stepper-viewer viewers/board-viewer] clerk/default-viewers)
   ::clerk/width :full
-  ::clerk/visibility {:code :hide :result :show} }
-(clerk-storm/show-trace {:include-fn-names [] }
-  (expand-pmove-rook-right pmove-1))
+  ::clerk/visibility {:code :hide :result :show}}
+(clerk-storm/show-trace {:include-fn-names []}
+  (expand-pmove-rook-v1 pmove-1))
 
 
-;; Some important observations about that first move-generation function we just
-;; wrote:
+;; Some observations about the first pmove expansion function we just wrote:
 ;;
-;; 1. It only moves the piece to the right. What do we need to move it left?
-;; or up or down? Answer: just a different offset vector!. Like,  `[0 1]` to move
+;; 1. It only moves the piece to the right. What do we need to move it to the left?
+;; or up or down? Answer: just a different offset vector! like `[0 1]` to move
 ;; up
 
 ;; 1. It's for Rook moves only. Or is it?  How many lines of code are specific
 ;; to movements of a Rook?. Answer: again, just the `[1 0]` offset! For example,
-;; doing the diagonal up-right movement of a Bishop would work by using offset `[1 1]`
+;; to do the diagonal up-right movement of a Bishop we'd just use offset `[1 1]`
 
-;; 1. We should extract some expression into separate functions to keep our code
-;; _at the same level of abstraction_. Some ideas:
-;;     * `(pmove-move-piece pmove offset)`: create and append a new step
-;;     * `(move-piece from-piece offset)`: shift a piece position
-;;     * `(pmove-finish-and-continue pmove)` return the given pmove plus its
-;; `:finished` version
-;;     * `(expand-pmove-offsets offsets)` to do the logic on multiple _directions_
+;; 1. We should extract some expressions into separate functions
 
-;; ### Move Constraints and Rules
 
-;; Our simplistic move-generation function always adds an extra step, ignoring
-;; board boundaries and other pieces on the board.
+;; **💡Tip** (About that last point): We want keep the code within our functions _at
+;; the same level of abstraction_: in this case, we want to use the language of
+;; pmoves, pieces, moves, and not that of artihmetic, indices or set operations. Some ideas:
+;; * `(pmove-move-piece pmove offset)`: create and append a new step
+;; * `(move-piece from-piece offset)`: shift a piece position
+;; * `(pmove-finish-and-continue pmove)` return the given pmove plus its
+;; `:finished` version * `(expand-pmove-offsets offsets)` to do the logic on
+;; multiple _directions_
+
+;; So, our first expansion function is imperfect and incomplete. That's
+;; OK, it's just v1... we are trying the basic ideas. Before implementing all
+;; logic for the Rook and the rest of the pieces, we should move up the
+;; ladder and work on how these functions will be called to generate all possible
+;; moves.
 ;;
-;; We need extra checks to discard `pmoves` which don't comply with certain
-;; restrictions, like: the piece went off the board, or it landed on a square
-;; that is already occupied.
+;; **💡Tip:** In general, it's better to work towards having an end-to-end version of our
+;; solution as soon as possible, even if not covering all cases and details. We
+;; want to have a _walking skeleton_,[^walking-skeleton] put it to the test, and
+;; then evolve it as you work interatively on filling the blanks.
+;; [^walking-skeleton]: See: [Walking
+;; Skeleton](https://wiki.c2.com/?WalkingSkeleton), [Tracer
+;; Bullets](https://wiki.c2.com/?TracerBullets), and [Steel
+;; Threads](https://www.cs.du.edu/~snarayan/sada/docs/steelthreads.pdf).  They
+;; all account to the same idea: to achieve a minimal end-to-end implementation,
+;; touching all components and layers of you architecture. The goal is to
+;; minimize risk by trying out and integrating our main ideas as soon as
+;; possible
 ;;
-;; For some pieces (like Rook and Bishop) we have to generate multiple steps for
-;; a move, but on the same direction. Other pieces can do only one step per
-;; move (King and Knight). Pawns are special: only one step, sometimes two.
+
+#(comment
+   ;; Reminds me of this great drawing about "MVPs" (Minimal Viable Product):
+   ;; ![MVP_image](https://blog.crisp.se/wp-content/uploads/2016/01/mvp.png). Not exactly the same
+   )
+
+
+
+;; ## Generating all candidate Moves
+
+;; So, our _partial moves_ represent our moves "in the making", and we'll have
+;; multiple functions to _expand_ them (say, one function per piece type).
+;;
+;; What we need is a function that will drive the process... the control
+;; structure that will invoke each of those functions, multiple times as needed,
+;; collecting all results.
+;;
+;; The inputs to our new function? A board position, the player's turn, and the
+;; move-expansion functions, one for each piece type.
+;;
+;; Here's a copy of `candidate-pmoves*`, straight from the `core` namespace:
+;;
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(defn candidate-pmoves*
+  \"Generate all finished candidate pmoves for the given position and player\"
+   [board player-turn expansion-rules]
+   (->> board
+ ①   :pieces
+ ②   (filter #(= player-turn (:player %)))
+ ③   (mapcat #(expand-pmove expansion-rules (new-pmove board %)))))")
+
+;; 1. Gets all pieces on the board
+;; 2. Keeps only those of the given player
+;; 3. For each piece: create a new base `pmove` and call `expand-pmove` (shown below) passing the
+;; move-expansion functions (`expansion-rules`)
+
+;; BTW, `expansion-rules` is a map from piece type to function, like this:
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code "{:r expand-pmove-rook-v1
+ :b expand-pmove-bishop-v1
+ :k expand-pmove-king-v1
+ ;; ... and so on
+             }")
+
+;; And here's the heart of our move-expansion logic:
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(defn expand-pmove
+  \"Give a starting base pmove, return the list of all valid (finished) pmoves\"
+  [expansion-rules base-pmove]
+
+ ①  (if-let [expand-pmove-step (get expansion-rules (pmove-piece-type base-pmove))]
+
+ ②    (->> (expand-pmove-step base-pmove)
+ ③         (mapcat (fn [p-move]
+                  (cond (pmove-outside-board? p-move) '()
+                         (:finished? p-move) (list p-move)
+                         :else (expand-pmove expansion-rules p-move)))))
+    (list)))")
+
+
+
+;; 1. obtain the move-expansion function for our piece
+;; 2. call it `(expand-pmove-step )` to expand our base `pmove` to a list of expanded `pmoves` (that is, with en extra step added)
+;; 3. collect all resulting pmoves, by:
+;; 4.  discarding those `pmoves` landing outside the board boundaries[^board-boundaries]
+;; 5.  keeping the `:finished?` pmoves as-is
+;; 6.  recursively expanding those pmoves which are not `:finished?`
+;; [^board-boundaries]: Questionable... we could have this check within the move
+;; functions, or somewhere else as _general_ rules passed as arguments. Some
+;; games might event allow moving pieces to special "outside the board"
+;; positions? Anyway... KISS, we can revise later
+;;
+;;
+;; These two functions are on our `core` namespaces, since they are not
+;; Chess-specific. Our goal is to keep anything game-specific down into the rule
+;; functions.[^htdp-book]
+;; [^htdp-book]: The code of `expand-pmove` roughtly follows the pattern of
+;; _generative-recursive_ functions as described in book ["How To Design
+;; Programs"](https://htdp.org/), [Chapter 26.1](https://htdp.org/2024-8-20/Book/part_five.html#%28part._.Adapting_the_.Design_.Recipe%29)
+;;
+;; *Warning*: this is recursive function with no checks: it depends on
+;; well-behaving expansion functions... if these don't stop adding new
+;; un-`:finished?` pmoves on each call, our function will diverge and never
+;; terminate (we'll overflow the stack). Exercise: add safe guards to limit our
+;; recursive function from going _overboard_ (another pun, intended 🤡).
+;;
+;; Let's try it. Again: go straight to the end to see the final result:
+
+^{::clerk/viewers (concat [clerk-storm/timeline-stepper-viewer viewers/board-viewer] clerk/default-viewers)
+  ::clerk/width :full
+  ::clerk/visibility {:code :hide :result :show}}
+(clerk-storm/show-trace
+    {:include-fn-names []}
+  (core/candidate-pmoves* test-board 0 {:r expand-pmove-rook-v1 }))
+
+
+
+;; ## Writing Tests
+;;
+;; Now that we have the basics of our model and algorithm in place, it's a
+;; good time to start writing automated tests.[^tdd-religion]
+;; We want to complete the move-expansion function for the Rook, and then
+;; code new ones for all piece types. It's crucial to have automated tests to
+;; validate our implementations as we go.
+;;
+;; [^tdd-religion]: Worshipers of the TDD would've started writing tests much
+;; earlier. During the early stages of a new problem, I find Clojure's
+;; live interactive environment more productive: It gives me the immediate
+;; feedback I want. I start writing tests when I need... well... tests :-)
+;;
+;; Let's think about how to express test cases for `candidate-pmoves*`, together
+;; with our first move-expansion function that we wrote ealier for Rooks. How
+;; about something like this:
+;;
+;; 1. _Given_: our expansion function(s), a board position, and a particular piece on the board
+;; 2. _When_: we generate all possible moves
+;; 3. _Then_: we want the resulting moves to match our set of known expected moves
+;;
+;; So, our test cases must construct a base `pmove` for the initial board
+;; possition and the list of expected _finished_ `pmoves`. Let's _hallucinate_
+;; how we could write such tests.[^hallucinate] Remember our literal boards?
+;; using vectors? It would be great if we could express both our initial board
+;; and the expected moves as as literal boards. After trying multiple ideas, I
+;; picked this syntax:
+
+;; [^hallucinate]: I always found LLMs (like GPT/Copilot) _hallucinations_ to be a feature, not a bug. It's a very human-like behavior!
+
+#_
+^{::clerk/visibility {:code :show :result :hide}}
+(t/expect-moves* {:expansion-rules {:r expand-pmove-rook-v1}}
+                 {:piece :R}
+                  ;; Initial position:
+                '[[- - k]
+                  [R - p]
+                  [K - -]]
+
+                  ;; Expected position:
+                '[[[R - k]
+                   [- - p]
+                   [K - -]]
+
+                  [[- - k]
+                   [- R p]
+                   [K - -]]
+
+                  [[- - k]
+                   [- - R] ;; <- Capturing the pawn
+                   [K - -]]])
+#_(comment
+;; Easy to see, right? Better if we could express the expected boards
+;; horizontally to save space. Like this:
+  )
+
+^{::clerk/visibility {:code :show :result :hide}}
+(deftest example-test-1 []   ;; define a standard Clojure test
+
+  ;; Dream-up a handy helper function that will run our test case:
+  (t/expect-moves {:expansion-rules {:r expand-pmove-rook-v1}}
+                  {:piece :R}
+                  '[[- - k]
+                    [R - p]
+                    [K - -]]
+
+                  '[[R - k] [- - k] [- - k]
+                    [- - p] [- R p] [- - R]
+                    [K - -] [K - -] [K - -]]))
+
+;; Hallucinate no more: I wrote `expect-moves` for you already. We won't dig
+;; into it here. Of course, feel free to peek at it on
+;; namespace [`test-utils`](../test/boardgames/test_utils) (warning: it's a bit
+;; messy).
+;;
+;; It's written using _assertions_ from Clojure's standard testing
+;; library. Our naive Rook function only implements movements to the
+;; right (remember?), so it fails our test. Here's the output we get:
+
+^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/auto-expand-results? true}
+(clerk/code
+ (let [sw (new java.io.StringWriter)]
+   (binding [clojure.test/*test-out* sw]
+     {:result (example-test-1)}
+     (str sw))))
+
+;; Hmmm... of course the standard test runner doesn't know how to format our
+;; vectors to make them look like boards. Hard to compare the values of
+;; `expected:` vs `actual:` on the output.
+;;
+;; Obvious idea: write a Clerk viewer for test failures! Function
+;; `expect-moves`, in addition to using Clojure's standard test assertions, also returns useful data for this
+;; purpose, a vector containing:
+;;
+;; 1. the original board position
+;; 1. the expected boards
+;; 1. the actual boards returned
+;;
+;; Let's call it directly, without Clojure's standard `deftest` (you may need to
+;; expand the result to make it easier to see the vectors):
+
+^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/auto-expand-results? true}
+(def tc1-result (t/expect-moves {:expansion-rules {:r expand-pmove-rook-v1}}
+                                {:piece :R}
+                                '[[- - k]
+                                  [R - p]
+                                  [K - -]]
+
+                                '[[R - k] [- - k] [- - k]
+                                  [- - p] [- R p] [- - R]
+                                  [K - -] [K - -] [K - -]]))
+
+;; And with out test viewer:
+^{::clerk/visibility {:code :hide :result :show}
+   ::clerk/viewers (concat [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer] clerk/default-viewers) }
+(t/view-test-case  tc1-result)
+
+
+
+;; Note that this viewer is very specific to our test cases. It'd be nice to
+;; have a dashboard to show the results of all standard project test cases,
+;; with custom viewers.  I actually started to prototype the idea (stealing from this repo
+;; `https://github.com/nextjournal/clerk-test`)... still ugly and not generic, but to get an idea (you'd have to expand the failed case):
+^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/viewers (concat [clerk.test/test-suite-viewer viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer] clerk/default-viewers)
+  ::clerk/auto-expand-results? true}
+@clerk.test/!test-report-state
+
+
+#_^{::clerk/visibility {:code :hide :result :show}
+  ::clerk/auto-expand-results? true}
+(clerk/with-viewer clerk.test/test-suite-viewer
+  @clerk.test/!test-report-state)
+
+;; ### Automating the automatic tests
+
+;; Writing test cases will be time-consuming, not only coming up with board
+;; positions, but also laying out all expected moves.
+
+;; Given that there are many open-source chess engines out there:
+
+;; _Couldn't we write a wrapper that, given a board position, it calls a chess
+;; engine to get all valid moves?_
+;;
+;; This may sound like cheating, because we are using an existing implemenation
+;; of what we want to implement ourselves. However, it's perfectly valid and
+;; quite common. Examples:
+
+;;   * If writing a compiler for a language that already exists: Wouldn't it
+;; make sense to compare it against existing implementations?[^java-tck]
+
+;;   * What about writing a SQL database?
+;;   There's [SQLLogicTest](https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki)[^sfqllogictest]
+;;   for that
+;;
+;;   * Even in business software: it's common to replace an old system with new
+;; one, while maintaining many of the same business rules: makes sense to rely
+;; on the old system to validate the new implementation.
+;;
+;; [^java-tck]: The [Java TCK (Technology Compatibility
+;; Kit)](https://www.jcp.org/en/resources/tdk) is a set of tests for the Java platform. Not
+;; just the language, but the Virtual Machines and standard library.
+;;
+;; [^sfqllogictest]: [SQLLogicTest](https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki)
+;; is _"...designed to verify that an SQL database engine computes correct results
+;; by comparing the results to identical queries from other SQL database
+;; engines"_
+;;
+;; **💡Tip:** If there's an existing system you can use as a reference, use it!
+;; It might serve as a good base against which to test your
+;; implementation. There is no shame in that.
+
+;; I leave that as fun exercise for the reader :-). I'd look into stockfish, and
+;; interact with it's UCI (universal chess interface).
+;;
+;; ---
+
+;; Alright, we have enough test tooling. Back to doing actual work...
+
+;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
+
+;; ## Moves for all Chess pieces
+
+;; Our simplistic move-expansion function _always_ adds an extra step, ignoring
+;; what's on the board... if called in a loop or recursively, things will never
+;; end!.  We need extra checks to discard `pmoves` which don't comply with
+;; certain restrictions, like: if the piece went off the board boundaries, or if
+;; it landed on a square that is already occupied.
+;;
+;; For some pieces (like Rook and Bishop) multiple steps are allowed for a move,
+;; but all on the same direction. Other pieces can do only one step per
+;; move (King). Pawns are special: only one step, sometimes two.
 ;;
 ;; What if the step lands on a square occupied by an opponent piece?  In this
 ;; case, we need to modify our `pmove` to remove the opponent piece from the
 ;; board (and maybe record the capture). Pawns are different, again: they
 ;; move in one direction, but capture on another.
 
-
-;; The keep a flexible design, we want to model all these constraints and
-;; behaviors as independent functions operating on `pmoves`. These functions
-;; become the primitives which we can then combine to implement to complete
+;; To keep a flexible design, we want to model all these constraints and
+;; behaviors as independent functions operating on `pmoves`. All these functions
+;; become the _primitives_ which we can then combine to implement to complete
 ;; logic for each piece.
-
 ;;
-;; Let's see a how the current (non-naive) implementation of our Rook's function looks like:
+;; This is where I spent most of the time modeling and trying different
+;; alternatives. Here I'm showing you the current (final?) result at a high
+;; level. For details, dive into the [`chess`](/src/boardgames/chess/) namespace.[^draw-owl]
+;; [^draw-owl]: This paragraph reminds me of the famous meme: [![img](https://i.kym-cdn.com/photos/images/original/000/572/078/d6d.jpg)](https://i.kym-cdn.com/photos/images/original/000/572/078/d6d.jpg)
+
+
+;; ### The Rook v2
+;; Let's see a how a more realistic implementation of our Rook's function looks like:
 
 ^{::clerk/visibility {:code :hide :result :show}}
 (clerk/code
  "(defn expand-pmove-for-rook [pmove]
    (->> pmove
-        (expand-pmove-dirs [↑ ↓ ← →])
-        (pmoves-discard #(or (pmove-on-same-player-piece? %)
-                             (pmove-changed-direction? %)))
-        (map pmoves-finish-capturing-opponent-piece)
-        (pmoves-finish-and-continue))))")
+   ①  (expand-pmove-dirs [↑ ↓ ← →])
+   ②  (pmoves-discard #(or (pmove-on-same-player-piece? %)
+                            (pmove-changed-direction? %)))
+   ③  (map pmoves-finish-capturing-opponent-piece)
+   ④  (pmoves-finish-and-continue))))")
 
-;; I hope the code is clear:
-;; 1. expand the pmove on all those offsets (directions)
-;; 1. discard the pmove's which land on the same player's piece, or change direction (Rooks can only move straight)
-;; 1. enrich pmoves which capture an opponent piece
-;; 1. for all remaining pmoves, clone them to return a version with `:finished? false` and `:finished? true`
+;; The code is a pipeline, which takes a `pmove` and then:
+;; 1. expands the pmove on all those offsets (directions)
+;; 2. discards the pmove's which land on the same player's piece or change direction (Rooks can only move straight)
+;; 3. _enriches_ pmoves which capture an opponent piece
+;; 4. for all remaining pmoves, return two versions: one with `:finished? false` and one with  `:finished? true`
 
 
+;; ### The Knight
 ;; The implementation of Bishop and Queen is pretty much identical to the
 ;; Rook. So let's peak at the Knight:
 
@@ -530,15 +852,19 @@ example-move
 
 (core/flip-and-rotations [1 2])
 
+;; Note how for Knights it makes sense to use a single step for the whole
+;; move. Nobody said that our offsets are limited to increments of 1!
 
-;; As I worked on implementing most rules of chess, the general pattern for each
-;; move-generation function follows this shape:
+;; ### A general pattern here
+;; As we worked on implementing most pieces, you can see that the general pattern for each
+;; move-expansion function follows this shape:
 ;;
 ;; 1. _Expand_: For the given `pmove`, generate a new one for each of the offsets supported by the piece type
 ;; 1. _Discard_: those `pmoves` that don't pass either one of the checks (predicates) specified
 ;; 1. _Modify_ (or, _enrich_): update the `pmoves`, for example when capturing, or promoting
 ;; 1. _Finish_: Mark some `pmoves` as `:finished`, maybe keeping the original one as unfinished for the next iteration
 
+;; ### The Pawn
 
 ;; Finally, let's look at the pawn. Here I found it simpler to thing the moving
 ;; and capturing as two combined "rules", each following the above pattern:
@@ -579,78 +905,32 @@ example-move
 ;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
 
 
-;; The core move-generation logic starts by calling the game-specific rules
-;; functions with this initial pmove. Each rule function _expands_ this pmove by
-;; returning a collection of (zero or more) new pmoves, each with an extra step added,
-;; some of them `:finished`.
-;;
-;; The move-generation logic iterates over the rules functions again, passing
-;; all the new pmoves that are not `:finished`, until we only have `:finished`
-;; ones.
-;;
-;;
-;; ---
-;; Here's an example of one of the final generated moves for the rook above.  We
-;; first start a game of chess from a given board position, obtain all possible
-;; moves, and filter for the ones finishing on square `[0 2]` (top-right)
-^{::clerk/visibility {:code :show :result :show}
-  ::clerk/viewer viewers/side-by-side-move-viewer}
-(let [game (core/start-game chess/chess-game
-                            (core/symbolic->board '[[r - k]
-                                                    [- - -]
-                                                    [R - K]]))]
-  (->> game
-       core/possible-pmoves
-       (filter (fn [pmove] (= [0 2] (-> pmove :steps first :piece :pos))))
-       first))
+#_
 
-;; It contains three steps, as we move the `R`ook from position `[0 0]` to `[0
-;; 2]`. Each step includes the piece it applies to and a snapshot of the
-;; board. The very first step is the initial board. Note that the last step also
-;; records the capturing of a piece (a pawn).
-;;
-;; The idea of modeling moves as a list of steps will make sense when you dig
-;; into the implementation the game-specific functions to expand the pmoves.
+(comment
+  ;; ## Call stack from `(possible-pmoves ...)`
 
-;; ---
-;;
-;; In the case of chess, the valid moves for a piece depend on its type. So we'd
-;; like to have a way to code the move-generation logic independently for each
-;; piece type. However, some of them share similar characteristics (moves on
-;; diagonals, or orthogonal, cannot go over other pieces, captures opponent
-;; pieces, etc.), so it'd be nice to code this "behaviors" separately and
-;; combine them to model each one of the piece types.
-;;
-;; ---
-;;
+  ;; Let's see the main functions in the call chain we trigger with `(core/possible-pmove ...)`[^clojure-storm].
+  ;; On each function call, you can click on the argument names to see the value of
+  ;; each:
+  ;;
+  ;; [^clojure-storm]: this viewer is powered by ClojureStorm (and FlowStorm): a
+  ;; runtime tracing debugger that lets you record the execution of any Clojure
+  ;; code, capturing code and values.
 
+  ^{::clerk/visibility {:code :show :result :hide}}
+  (def game-1 (core/start-game chess/chess-game))
 
-;; ## Call stack from `(possible-pmoves ...)`
+  ;; ^{::clerk/viewer clerk-storm/trace-code-viewer ::clerk/budget nil}
+  ;; (clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
+  ;;                                             #"candidate-pmoves\*?"
+  ;;                                             #"expand-pmove"] }
+  ;;   (core/possible-pmoves game-1))
 
-
-;; Let's see the main functions in the call chain we trigger with `(core/possible-pmove ...)`[^clojure-storm].
-;; On each function call, you can click on the argument names to see the value of
-;; each:
-;;
-;; [^clojure-storm]: this viewer is powered by ClojureStorm (and FlowStorm): a
-;; runtime tracing debugger that lets you record the execution of any Clojure
-;; code, capturing code and values.
-
-
-^{::clerk/visibility {:code :show :result :hide}}
-(def game-1 (core/start-game chess/chess-game))
-
-
-;; ^{::clerk/viewer clerk-storm/trace-code-viewer ::clerk/budget nil}
-;; (clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"
-;;                                             #"candidate-pmoves\*?"
-;;                                             #"expand-pmove"] }
-;;   (core/possible-pmoves game-1))
-
-
-#_^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
-(clerk-storm/show-trace {:include-fn-names [#"possible-pmoves" #"candidate-pmoves\*?" #"expand-pmove"] }
-  (core/possible-pmoves game-1))
+  #_^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full}
+  (clerk-storm/show-trace {:include-fn-names [#"possible-pmoves" #"candidate-pmoves\*?" #"expand-pmove"]}
+    (core/possible-pmoves game-1))
+  )
 
 
 
@@ -664,92 +944,36 @@ example-move
 
 
 
-;; ## All moves
+;; ## Display All Possible Moves
+
 
 ;; OK, let's generate all the possible moves from a starting chess board. We sort
 ;; them by piece coordinate, and show them visually:
 
+(def game-1 (core/start-game chess/chess-game))
 
 (clerk/row
  (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
       (sort-by #(-> % :steps last :piece :pos)
                (core/possible-pmoves game-1))))
 
+#_(comment
+  ;; Just for kicks, let's do the same off the random board we've created at the beginning:
+  (def a-random-game (core/start-game chess/chess-game a-random-board))
+
+ (clerk/row
+  (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
+       (sort-by #(-> % :steps last :piece :pos)
+                (core/possible-pmoves a-random-game)))))
 
 
 
 
 
 
-;; ### automated Tests
-
-;; Our _symbolic_ representation of the boards allowed us to create a helper function for running tests:
-;; given a board possition, we list the boards we expect as possible moves.
+;; ## Next... as an exercise
 ;;
-;; Example:
-^{::clerk/visibility {:code :show :result :hide}
-  ::clerk/viewer clerk-viewer/code-viewer}
-(t/expect-moves {:piece :R}
+;; Here are some of the pending ideas to implement
 
-                  '[[p R -]
-                    [- - -]
-                    [- K -]]
-
-                  '[[[R - -] ;; Capturing the pawn
-                     [- - -]
-                     [- K -]]
-
-                    [[p - -]
-                     [- R -]
-                     [- K -]]
-
-                    [[p p R]
-                     [- - -]
-                     [- K -]]])
-
-;; v2: horizonally
-^{::clerk/visibility {:code :show :result :hide}
-  ::clerk/viewer clerk-viewer/code-viewer}
-(t/expect-moves-2 {:piece :R}
-                  '[[- - - -]
-                    [- - - -]
-                    [R - - -]
-                    [- - - -]]
-
-                  '[[- - - -] [- - - -]  [R - - -]   [- - - -] [- - - -] [- - - -]
-                    [- - - -] [R - - -]  [- - - -]   [- - - -] [- - - -] [- - - -]
-                    [- - - -] [- - - -]  [- - - -]   [- R - -] [- - R -] [- - - R]
-                    [R - - -] [- - - -]  [- - - -]   [- - - -] [- - - -] [- - - -]])
-
-
-;; The interesting thing, however, is when there's a failure...
-
-(clerk/with-viewer clerk.test/test-suite-viewer
-  @clerk.test/!test-report-state)
-
-;; For more, see:
-;; * [boardgames/clerk-testrunner](/test/boardgames/clerk_testrunner)
-
-
-
-;; ---
-
-;; ## ********* DRAFT SKETCH NOTES *********
-
-;; #### * TODO Automatically validate expected moves by comparing against an existing game engine
-;; #### * TODO: Explain more about move generation (core primitives + game-specific rules)
-;; #### * TODO: implement other games (TTT, checkers)
-;; #### * TODO: implement game loop: to actually 'play'. Basically: "apply" moves to game stage
-
-
-
-;; ---
-
-;; Just for kicks, let's start off the random board create above
-(def a-random-game (core/start-game chess/chess-game a-random-board))
-
-;; Get all possible moves:
-(clerk/row
- (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
-     (sort-by #(-> % :steps last :piece :pos)
-              (core/possible-pmoves a-random-game))))
+;; * Implement rules for other games (TTT, checkers)
+;; * implement a game loop: to actually 'play'. Basically: "apply" moves to a game state
