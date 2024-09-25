@@ -16,12 +16,19 @@
 
 (def upper-case-keyword (comp keyword str/upper-case name))
 
+(defn upper-case? [kw]
+  (= (name kw) (str/upper-case (name kw))))
+
 (defn replace-in-set [s old-elem new-elem]
   (if (contains? s old-elem)
     (-> s
         (disj old-elem)
         (conj new-elem))
     s))
+
+(defn submap? [a b]
+  (= a (select-keys b (keys a))))
+
 
 (defmacro TAP> [& body]
   `(let [result# (do ~@body)]

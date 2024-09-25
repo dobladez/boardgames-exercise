@@ -781,7 +781,6 @@ example-move
 
 ;; Alright, we have enough test tooling. Back to doing actual work...
 
-;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
 
 ;; ## Moves for all Chess pieces
 
@@ -891,10 +890,86 @@ example-move
          ;; Promotion rule: TODO
 ")
 
-;; Final comment: some implementations use `some-fn`, and `partial`, others use
-;; `#(or ... )`, just for illustration purposes. The difference is just a matter
-;; of style. You should pick one and be consistent.
+;; Note: I'm showing some implementations using `some-fn` and `partial` for
+;; composing functions, others use `#(or ... )` (anonymous lambda
+;; functions). This is just for illustration purposes. The difference is just a
+;; matter of style. You should pick one and be consistent.
+
+
+;; ### The King. Finally
 ;;
+;; The basic movements of a king are just like the Rook/Bishop/Queen (differing
+;; only on the offset directions), with the only exception that it's limited to
+;; one step.
+
+;; There's also _castling_, which is a pretty different type of move.
+;; Here's the piece of the expansion function:
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(defn expand-pmove-for-king [pmove]
+  (concat
+   (->> pmove ;; Regular move
+        (expand-pmove-dirs (mapcat core/rotations [↑ ↗]))
+        (pmoves-discard (some-fn pmove-on-same-player-piece?
+                                 (partial pmove-max-steps? 1)))
+        (map pmove-finish-capturing)
+        (map pmove-finish))
+
+   (->> pmove ;; Castling
+     ① (expand-pmove-dirs [← →])
+     ② (pmoves-discard (some-fn pmove-on-same-player-piece?
+     ③                          pmove-changed-direction?
+     ④                          (complement pmove-piece-1st-move?)
+     ⑤                          (partial pmove-max-steps? 2)
+     ⑥                          pmove-king-in-check?))
+        (map pmoves-finish-castling)))")
+
+;; You can hopefully "read" rules of castling on the second section of that function:
+;; 1. move horizontally
+;; 1.  stop if square occupied by same player
+;; 1.  stay on straight line
+;; 1.  only if King never moved before
+;; 1.  stop expanding at two steps
+;; 1.  king cannot be in check (not even on the intermediate steps!). We'll see how `pmove-king-in-check?` does its magic on the next section
+
+;; Function `pmoves-finish-castling` handles the rest of the (non-trivial)
+;; details: in ensures there's a rook on the right place which never moved
+;; before, no other piece in between, and if all is good, it moves the rook to
+;; other side of the King
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(defn- pmoves-finish-castling [pmove]
+  (if (not= 3 (count (-> pmove :steps)))
+    pmove
+
+    (let [[last-step prior-step]  (pmove :steps)
+          board (:board last-step)
+          last-step-pos (-> last-step :piece :pos)
+          prior-step-pos (-> prior-step :piece :pos)
+          offset (mapv - last-step-pos prior-step-pos)
+          player (-> last-step :piece :player)
+          next1-piece (board-find-piece board {:pos (-> last-step-pos (pos+ offset))})
+          next2-piece (board-find-piece board {:pos (-> last-step-pos (pos+ offset) (pos+ offset))})]
+
+      (if (or (rook-for-castling? next1-piece player)
+              (and (nil? next1-piece) (rook-for-castling? next2-piece player)))
+        (let [target-rook (or next1-piece next2-piece)]
+          (-> pmove
+              (core/pmove-update-last-step #(core/step-move-piece-to % target-rook prior-step-pos))
+              pmove-finish))
+
+        pmove))))")
+
+;; That handles king-side and queen-side castling for both white and black.
+
+;; Finally, the one HUGE difference with other pieces is that the King cannot be
+;; left in check! Note that this limitation applies not only to the moves of the
+;; King itself but to all other piece moves too. Therefore, we cannot impose
+;; this constraint within the expansion rule of the King only... we need a way
+;; to encode more general rules.  That's what we'll tackle on the next
+;; section.
+
+;; ## _Aggregate_ rules
 
 ;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
 

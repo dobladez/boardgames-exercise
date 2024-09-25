@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.data :as data]
             [clojure.string :refer [lower-case upper-case]]
-            [boardgames.utils :as utils :refer [TAP>]]
+            [boardgames.utils :as utils :refer [upper-case? TAP>]]
             [boardgames.clerk-viewers :as viewers]
             [boardgames.core :as core]
             [boardgames.chess :as chess]
@@ -14,15 +14,15 @@
   (let [{:keys [piece update-board-fn extra-checks] :or {update-board-fn identity extra-checks []}} opts
         game-start (update-board-fn
                     (core/start-game game-def (core/symbolic->board initial-board)))
-        game (if (core/upper-case? piece)
+        game (if (upper-case? piece)
                game-start
                (core/switch-turn game-start))
         piece-type (-> piece name lower-case keyword)
         raw-moves (core/possible-pmoves game)
 
-        ;; Let's sort all the possible moves by piece coordinates
+        ;; Let's sort all the possible moves by final piece coordinates
         moves (->> raw-moves
-                   (filter #(= piece-type (-> % :steps first :piece :type)))
+                   (filter #(= piece-type (-> % :steps last :piece :type)))
                    (sort-by #(-> % :steps first :piece :pos second))
                    (sort-by #(-> % :steps first :piece :pos first)))
 
@@ -30,7 +30,7 @@
 
     #_(is (= (count expected-moves-set) (count moves)))
     #_(is (every? #(contains? final-boards %) expected-moves-set))
-    (is (=  expected-boards final-boards))
+    (is (=  (set expected-boards) (set final-boards)))
 
     (when (seq extra-checks)
       (doall (map (fn [actual-move extra-expected]

@@ -4,14 +4,14 @@
 (ns boardgames.core
   (:require [nextjournal.clerk :as clerk]
             [clojure.string :refer [lower-case upper-case]]
-            [boardgames.utils :as utils :refer [replace-in-set]]))
+            [boardgames.utils :as utils :refer [replace-in-set upper-case?]]))
 
 {::clerk/visibility {:code :show :result :hide}
  ::clerk/auto-expand-results? true
  ::clerk/budget 1000}
 
 ;;
-;; ## Operations on a board Piece
+;; ## Operations on a Piece
 ;;
 (defn new-piece
   ([type player pos] (new-piece type player pos nil))
@@ -26,16 +26,23 @@
 (defn piece-flag? [piece flag]
   (contains? (:flags piece) flag))
 
-(defn move-piece [piece dir-offsets]
+(defn piece-never-moved? [piece]
+  (not (piece-flag? piece :moved)))
+
+
+(defn move-piece-to [piece new-pos]
   (-> piece
-      (assoc :pos (mapv + (:pos piece) dir-offsets))
+      (assoc :pos new-pos)
       (flag-piece :moved)))
 
-;; We use tuples of [column row] offsets to represent "directions". Here we give
-;; some common ones a name. Note: they are allowed to be more than 1
-(def dir-up [0 +1])
-(def dir-up-left [-1 +1])
-(def dir-up-right [+1 +1])
+#_(defn move-piece [piece offset]
+  (move-piece-to piece (mapv + (:pos piece) offset)))
+
+
+;; ## Offsets
+;;
+;; We use tuples of [column row] offsets to represent shifts in
+;; position. Here we use unicode arrow names for all 1-step offsets
 (def ↑ [0 +1])
 (def ↓ [0 -1])
 (def → [+1 0])
@@ -64,6 +71,8 @@
   (vec (concat (rotations offset)
                (rotations (flip-h offset)))))
 
+(defn pos+ [pos offset]
+    (mapv + pos offset))
 ;;
 ;; ## Operations on a Board
 ;;
@@ -79,20 +88,39 @@
 (defn board->symbolic [board]
   (let [rows  (:row-n board)
         cols (:col-n board)]
-    (when (and (number? rows) (number? cols))
-      (let [empty-board (vec (repeat rows (vec (repeat cols '-))))]
+    (when (and (pos? rows) (pos? cols))
+      (let [empty-vec (vec (repeat rows (vec (repeat cols '-))))]
         (->> (:pieces board)
              (reduce (fn [board piece]
-                       (assoc-in board (reverse (:pos piece))
-                                 (if (= 1 (:player piece))
-                                   (symbol  (:type piece))
-                                   (-> piece :type name upper-case symbol))))
-                     empty-board)
+                       (try
+                         (assoc-in board (reverse (:pos piece))
+                                   (if (= 1 (:player piece))
+                                     (symbol  (:type piece))
+                                     (-> piece :type name upper-case symbol)))
+                         (catch Exception *e*
+
+
+                           ;; (prn *e*)
+                           ;; (prn "****************piece**********")
+                           ;; (prn piece)
+                           ;; (prn "****************board**********")
+                           ;; (prn board)
+                           board
+                             )
+                         ))
+                     empty-vec)
              reverse
              vec)))))
 
-(defn upper-case? [kw]
- (= (name kw) (upper-case (name kw))))
+
+
+
+(defn board-find-pieces [board partial-piece]
+  (filter #(= (select-keys % (keys partial-piece)) partial-piece)
+          (:pieces board)))
+
+(defn board-find-piece [board partial-piece]
+  (first (board-find-pieces board partial-piece)))
 
 (defn symbolic->board [symbolic-board]
   (let [pieces (->>
@@ -115,9 +143,6 @@
 (defn pieces-at-pos [board pos]
   (filter #(= pos (:pos %)) (:pieces board)))
 
-(defn pieces-matching [board partial-piece]
-  (filter #(= (select-keys % (keys partial-piece)) partial-piece)
-          (:pieces board)))
 
 (defn pmove-player [pmove]
   (-> pmove :steps first :piece :player))
@@ -133,13 +158,13 @@
 
 
 ;;
-;; ## Moves
+;; ## Moves and Partial moves (pmoves)
 ;;
-;; A move is comprised a list of (one or more) steps.
+;; A (partial) move is comprised a list of (one or more) steps.
 ;;
 ;; While generating possible moves, a move is grown one step at a time. Here we
 ;; refer to them as `pmoves`  (for "partial move").  A `pmove` that is not
-;; `:finished?` may be expanded with more steps until it becomes so.
+;; `:finished?` may be expanded with more steps until it is discarded or become :finished?.
 ;;
 (defn new-pmove [board piece]
   {:steps (list {:board board :piece piece :flags #{}})
@@ -154,14 +179,6 @@
         (>= (first pos) (:col-n board))
         (>= (second pos) (:row-n board)))))
 
-#_ (defmulti expand-pmove-step
-  "Given a pmove, return the next posible pmoves"
-  (fn [pmove]
-    (:type (:piece (first (:steps pmove))))))
-
-#_(defmethod expand-pmove-step :default [_] '())
-
-
 (defn- pmove-piece-type [pmove]
   (:type (:piece (first (:steps pmove)))))
 
@@ -175,29 +192,25 @@
          (mapcat (fn [p-move]
                    (cond (pmove-outside-board? p-move) '()
                          (:finished? p-move) (list p-move)
-                         :else (expand-pmove expansion-rules p-move))) ;; recurse
-                 ))
-
+                         :else (expand-pmove expansion-rules p-move)))))
     (list)))
 
 
-(defn candidate-pmoves* [board player-turn expansion-rules]
+(defn candidate-pmoves*
+  "Generate all finished candidate pmoves for the given position and player"
+  [board player-turn expansion-rules]
   (->> board
        :pieces
        (filter #(= player-turn (:player %)))
        (mapcat #(expand-pmove expansion-rules (new-pmove board %)))))
 
 
-(defn candidate-pmoves "Generate (using game expansion rules) list of finished pmoves candidates"
+(defn candidate-pmoves
+  "Generate (using game expansion rules) list of finished pmoves candidates"
   [game-state]
 
   (let [{:keys [board game-def]} game-state]
-    (candidate-pmoves* board (:turn game-state) (:expansion-rules game-def))
-#_    (->> board
-         :pieces
-         (filter #(= (:turn game-state)
-                     (:player %)))
-         (mapcat #(expand-pmove (:expansion-rules game-def) (new-pmove board %))))))
+    (candidate-pmoves* board (:turn game-state) (:expansion-rules game-def))))
 
 (defn- apply-aggregate-rules [game-state pmoves]
   ;; TODO: change impl to avoid need for game-state on agg rules
@@ -225,16 +238,31 @@
   )
 
 (defn- pmove-add-step [pmove update-fn]
-  (update-in pmove [:steps] (fn [steps] (conj steps (update-fn (first steps))))))
+  (update-in pmove [:steps] conj (update-fn (-> pmove :steps first))))
+
+(defn pmove-update-last-step [pmove f]
+  (update-in pmove [:steps]
+             (fn [steps]
+               (let [last-step (-> steps first)]
+                 (-> (drop 1 steps)
+                     (conj
+                      (f last-step)))))))
+
+(defn step-move-piece-to [step from-piece pos]
+  (let [to-piece (move-piece-to from-piece pos)]
+    (-> step
+        (update-in [:board :pieces] replace-in-set from-piece to-piece)
+        (assoc-in [:piece] to-piece))))
+
+(defn step-move-piece [step from-piece offset]
+  (step-move-piece-to step from-piece (pos+ (:pos from-piece) offset)))
 
 (defn pmove-move-piece [pmove dir]
   (pmove-add-step pmove
                   (fn move-piece-step [step]
-                    (let [from-piece (:piece step)
-                          to-piece (move-piece from-piece dir)]
-                      (-> step
-                          (update-in [:board :pieces] replace-in-set from-piece to-piece)
-                          (assoc-in [:piece] to-piece))))))
+                    (let [from-piece (:piece step)]
+                      (step-move-piece step from-piece dir)))))
+
 
 (defn pmove-capture-piece [pmove captured-pieces]
   (update-in pmove [:steps]
@@ -247,16 +275,6 @@
                           (update-in [:board :pieces]
                                      #(reduce disj % captured-pieces)))))))))
 
-#_ (defn pmove-capture-piece_NEW [pmove captured-pieces]
-  (let [last-steps-idx (-> pmove :steps count dec)]
-
-    (update-in pmove [:steps last-steps-idx]
-               (fn [last-step]
-                 (-> last-step
-                     (assoc :captures captured-pieces)
-                     (update-in [:board :pieces]
-                                #(reduce disj % captured-pieces)))))))
-
 (defn pmove-last-step-direction [pmove]
   (when (> (count (:steps pmove)) 1)
     (let [[last-step prior-step] (:steps pmove)]
@@ -267,7 +285,7 @@
         starting-board (:board first-step)
         last-step (-> pmove :steps first)
         piece (:piece last-step)]
-    (not (empty? (pieces-matching starting-board {:player (opponent-player (:player piece))
+    (not (empty? (board-find-pieces starting-board {:player (opponent-player (:player piece))
                                                   :pos (:pos piece)})))))
 
 (defn pmove-on-same-player-piece? [pmove]
@@ -275,11 +293,10 @@
         starting-board (:board first-step)
         last-step (-> pmove :steps first)
         piece (:piece last-step)]
-    (not (empty? (pieces-matching starting-board (select-keys piece [:player :pos]))))))
+    (not (empty? (board-find-pieces starting-board (select-keys piece [:player :pos]))))))
 
-(defn pmove-over-max-steps? [max pmove]
+(defn pmove-max-steps? [max pmove]
   (> (dec (count (:steps pmove))) max))
-
 
 
 (defn pmove-finish [pmove]

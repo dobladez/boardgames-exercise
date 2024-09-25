@@ -10,7 +10,7 @@
 
 ;; Given a board possition, we can start request the list of possible moves and
 ;; assert that they contain the moves we expect
-(deftest chess-rook-moves
+(deftest chess-rook-moves-old
 
   (let [board (core/symbolic->board '[[- - - - - - - -]
                                       [- - - - - - - -]
