@@ -20,8 +20,9 @@
 
 ;; ---
 ;; 1. [Welcome](./welcome)
-;; 1. [Introduction](./intro): Goals. Clojure. Some background and recommended references.
+;; 1. [Introduction](./intro)
 ;; 1. Code Walkthrough 👈 __you are here__
+;; 1. [Further Reading](./furtherreading)
 ;; ---
 
 #_(clerk/html [:ol

@@ -15,7 +15,7 @@
 {:nextjournal.clerk/visibility {:code :show :result :show}
  :nextjournal.clerk/auto-expand-results? true}
 
-;; ## Scratchpad to try ideas/componets
+;; ## Scratchpad to try ideas/components
 
 
 (comment
@@ -24,6 +24,24 @@
 
 ^{::clerk/visibility {:code :show :result :hide}}
 (clerk/add-viewers! [viewers/board-viewer])
+
+
+
+
+(def board-0 (core/symbolic->board '[[r n b q k b n r]
+                                     [p p p p p p p p]
+                                     [- - - - - - - -]
+                                     [- - - - - - - -]
+                                     [- - - - - - - -]
+                                     [- - - - - - - -]
+                                     [P P P P P P P P]
+                                     [R N B Q K - - R]]))
+
+(core/candidate-pmoves* board-0 0  {:k chess/expand-pmove-for-king } )
+
+
+(filter #(= :k (-> % :steps last :piece :type))
+        (core/candidate-pmoves* board-0 0 chess/chess-expansion-rules ))
 
 
 #_
@@ -53,9 +71,9 @@
 
 
 ;; ### Game: get possible moves
-(def game-1 (core/start-game chess/chess-game))
+#_(def game-1 (core/start-game chess/chess-game))
 
-game-1
+#_game-1
 
 
 #_
@@ -71,6 +89,7 @@ game-1
  (sort-by #(-> % :steps last :piece :pos)
           (core/possible-pmoves game-1)))
 
+
 ;; ## Clerk storm protype
 
 #_^{::clerk/viewer clerk-storm/trace-code-viewer}
@@ -78,10 +97,18 @@ game-1
     (core/possible-pmoves game-1))
 
 
+#_#_
+^{::clerk/viewer clerk-storm/timeline-stepper-viewer
+  ::clerk/width :wide
+  ::clerk/visibility {:code :hide :result :show}}
+(clerk-storm/show-trace
 
-^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
-(clerk-storm/show-trace {:include-fn-names [#"possible-pmoves"  #"candidate-pmoves\*?" #"expand-pmove"] }
+    {:include-fn-names [#"possible-pmoves"
+                        #"candidate-pmoves\*?"
+                        #"expand-pmove"]}
+
   (core/possible-pmoves game-1))
+
 
 
 #_#_
@@ -125,6 +152,20 @@ game-1
 ^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
 (clerk-storm/show-trace {:include-fn-names [#"fib"] }
   (factorial-using-apply-iterate 2))
+
+
+
+#_#_#_(defn fn-b [n]
+  (let [tmp n]
+    (inc tmp)))
+
+(defn fn-a [n]
+  (let [tmp n]
+    (inc (fn-b tmp))))
+
+^{::clerk/viewer clerk-storm/timeline-stepper-viewer ::clerk/width :full }
+(clerk-storm/show-trace { }
+  (fn-a 1))
 
 #_(comment
 
@@ -203,5 +244,14 @@ game-1
 
 ;; -> (candidate-moves game-state) ;; <-- form as it appears on parentq
   ;; --> (candidate-moves* game-state) ;; <-- form as it appears on parentq
+
+)
+
+
+(comment
+
+
+
+
 
 )

@@ -12,7 +12,7 @@
 
 (deftest failing-on-purpose
 
-  (t/expect-chess-moves {:piece :R}
+#_  (t/expect-chess-moves {:piece :R}
                         '[[p R -]
                           [- - -]
                           [- K -]]

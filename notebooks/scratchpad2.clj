@@ -85,3 +85,14 @@
  :a-string "testing"
  :a-nested-value-a {:test-1 "value-A"}
 }
+
+
+
+
+
+^{::clerk/visibility {:code :show :result :show}
+  ::clerk/auto-expand-results? true
+  ::clerk/viewers (concat [{:pred #(= 1 %)
+                            :transform-fn (fn [x] (update x :nextjournal/value (fn xyz [_] (keys x)) ))}]
+                          clerk/default-viewers)}
+[{ :a 1}]
