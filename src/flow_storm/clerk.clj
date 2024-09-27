@@ -307,9 +307,9 @@
                          #_#_highlight-styles "background-color: rgb(253 230 138); border-bottom: solid 1px gray; font-weight: bold;" ;; TODO: use a class?
                          highlight-styles-cl {:background-color "rgb(253 230 138)" :border-bottom "solid 1px gray" :font-weight "bold" :color "#000000c9"}]
 
-                     [:div.justify-stretch.grid.grid-cols-5.border-2.border-solid.border-indigo-500.rounded-md
+                     [:div.justify-stretch.grid.grid-cols-5.border-4.border-solid.border-indigo-500.rounded-md
                       {}
-                      [:div.col-span-3
+                      [:div.col-span-3.flex.flex-col.justify-end
 
                        [:div.forms.viewer.text-xs.XXXXXcode-viewer.bg-slate-100.dark:bg-slate-800.rounded-tl-md
                         {:ref (fn [el] (reset! !forms-el el))}
@@ -356,7 +356,7 @@
 
 ;; ----------------------------
 
-                      [:div#stepper.flex.flex-col.col-span-2.rounded-r-md.border-l-2.border-indigo-600
+                      [:div#stepper.flex.flex-col.col-span-2.rounded-r-md.border-l.border-indigo-600
                        #_{:style {:bottom 15 :right 15 :width 600 :height 700 :z-index 10000}}
                        {:style {:height 700}}
 

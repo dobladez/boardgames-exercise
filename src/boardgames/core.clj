@@ -97,17 +97,8 @@
                                    (if (= 1 (:player piece))
                                      (symbol  (:type piece))
                                      (-> piece :type name upper-case symbol)))
-                         (catch Exception *e*
-
-
-                           ;; (prn *e*)
-                           ;; (prn "****************piece**********")
-                           ;; (prn piece)
-                           ;; (prn "****************board**********")
-                           ;; (prn board)
-                           board
-                             )
-                         ))
+                         (catch Exception *ignore* ;; piece off the board boundaries?
+                           board)))
                      empty-vec)
              reverse
              vec)))))
@@ -213,29 +204,13 @@
     (candidate-pmoves* board (:turn game-state) (:expansion-rules game-def))))
 
 (defn- apply-aggregate-rules [game-state pmoves]
-  ;; TODO: change impl to avoid need for game-state on agg rules
-  #_((apply comp (:aggregate-rules (:game-def game-state))) game-state pmoves)
-  ((apply comp (:aggregate-rules (:game-def game-state))) pmoves)
-
-
-  )
+  ((apply comp (:aggregate-rules (:game-def game-state))) pmoves))
 
 (defn possible-pmoves "Returns list of all finished (and valid) pmoves"
   [game-state]
 
   (->> (candidate-pmoves game-state)
        (apply-aggregate-rules game-state)))
-
-
-
-;;;;
-(defn game-apply-pmove [game pmove]
-  ;; TODO
-  game
-  )
-(defn board-apply-pmove [board pmove]
-  ;; TODO
-  )
 
 (defn- pmove-add-step [pmove update-fn]
   (update-in pmove [:steps] conj (update-fn (-> pmove :steps first))))
@@ -315,10 +290,9 @@
 ;;
 ;; ## Games
 ;;
-(defn make-game [name player-count initiate-board-fn expansion-rules aggregate-rules]
+(defn make-game [name initiate-board-fn expansion-rules aggregate-rules]
   ;; TODO validations
   {:name name
-   :player-count player-count
    :initiate-board-fn initiate-board-fn
    :expansion-rules expansion-rules
    :aggregate-rules aggregate-rules})
@@ -337,5 +311,12 @@
     :board initial-board
     :turn 0}))
 
+
 ;; TODO:
-(defn game-loop [])
+
+(defn game-apply-pmove [game pmove]
+  ;; TODO
+  game
+  )
+(defn game-loop []
+  )

@@ -13,7 +13,6 @@
                                               pmove-on-other-player-piece?
                                               pmove-outside-board?
                                               pmove-piece-1st-move?
-                                              pmove-min-steps?
                                               pmove-max-steps?]]))
 
 {::clerk/visibility {:code :show :result :hide}
@@ -145,9 +144,10 @@ use all possible dirs. Useful for pieces that move in a straight line"
   (let [last-step (-> pmove :steps first)
         board (:board last-step)
         player (core/opponent-player (-> last-step :piece :player))
-        follow-up-moves (core/candidate-pmoves* board player
-                                                (dissoc chess-expansion-rules :k))]
-    (some captures-king? follow-up-moves)))
+        reply-moves (core/candidate-pmoves* board
+                                            player
+                                            (dissoc chess-expansion-rules :k))]
+    (some captures-king? reply-moves)))
 
 
 ;; ## Castling
@@ -235,17 +235,16 @@ use all possible dirs. Useful for pieces that move in a straight line"
    :q expand-pmove-for-queen
    :p expand-pmove-for-pawn })
 
+(defn discard-king-checked-pmoves [pmoves]
+  (->> pmoves (remove pmove-king-in-check?)))
+
 (def chess-aggregate-rules
-  [(fn discard-king-checked-pmoves [pmoves]
-     (->> pmoves (remove pmove-king-in-check?)))
-
-   (fn xyz [pmoves]
-     pmoves)])
+  [discard-king-checked-pmoves])
 
 
-(core/defgame chess-game "Chess" 2 initiate-chess-board chess-expansion-rules chess-aggregate-rules)
+(core/defgame chess-game "Chess" initiate-chess-board chess-expansion-rules chess-aggregate-rules)
 
-(core/defgame shuffle-chess-game "Chess" 2 initiate-shuffle-chess-board chess-expansion-rules chess-aggregate-rules)
+(core/defgame shuffle-chess-game "Chess" initiate-shuffle-chess-board chess-expansion-rules chess-aggregate-rules)
 
 ;; Usage:
 (comment

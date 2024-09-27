@@ -806,7 +806,7 @@ example-move
 ;;
 ;; This is where I spent most of the time modeling and trying different
 ;; alternatives. Here I'm showing you the current (final?) result at a high
-;; level. For details, dive into the [`chess`](/src/boardgames/chess/) namespace.[^draw-owl]
+;; level. All the code lives in the [`chess`](/src/boardgames/chess/) namespace.[^draw-owl]
 ;; [^draw-owl]: This paragraph reminds me of the famous meme: [![img](https://i.kym-cdn.com/photos/images/original/000/572/078/d6d.jpg)](https://i.kym-cdn.com/photos/images/original/000/572/078/d6d.jpg)
 
 
@@ -971,14 +971,174 @@ example-move
 
 ;; ## _Aggregate_ rules
 
-;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
+;; Up until now, we've implemented game-specific rules as piece-specific pmove
+;; expansion rules. As we've discussed for the case of keeping one's King out of
+;; check, that's not enough. We want to define some rules that apply across
+;; pmoves.
 
-;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
+;; The idea (again, taken from Sussman's book) is to define one or more
+;; _aggregate_ rules, which our core move-generation function will call after
+;; calling all pmove _expansion_ rules, giving them a chance to veto or enrich
+;; the `:finished` pmoves coming out of the `expansion` rules.
 
-;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
+;; It should now become clear why we called that function on prior sections
+;; _`candidate-pmoves*`_: they were still not officially legal moves... just the
+;; final candidates before passing through the aggregate rules.
 
-;; 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖 🔖
 
+;; ### Aggregate Rule: King never in check
+
+;; Let's then implement our aggregate rule to discard all `pmoves` which leave
+;; our own King in check:
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(defn discard-king-checked-pmoves [pmoves]
+  (->> pmoves (remove pmove-king-in-check?)))")
+
+;; And, of course, `pmove-king-in-check?`:
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+"(defn pmove-king-in-check? [pmove]
+  (let [last-step (-> pmove :steps first)
+        board (:board last-step)
+        player (core/opponent-player (-> last-step :piece :player))
+  ①     reply-moves (core/candidate-pmoves* board
+                                            player
+                                            (dissoc chess-expansion-rules :k))]
+  ② (some captures-king? reply-moves)))")
+
+
+;; Our aggregate rule:
+;; 1. Call back to `core/candidate-pmoves*` (co-recursion?), passing all expansion rules
+;; *except* for that of the King (otherwise, it might go infinitely since we
+;; also use `pmove-king-in-check?` from the King's expansion rule
+;; for castling.[^aggregate-rules-unfinished])
+;; 2. Return whether any of the possible follow-up moves may capture the King
+;; [^aggregate-rules-unfinished]: For the castling case, an alternative
+;; implementation could be to have another list of aggregate rules to apply on the un-finished
+;; pmoves during expansion and do the check there.
+
+
+;; ### Pending Aggregate Rules
+;;
+;; There are more aggregate rules we should implement for our rules of chess to be complete. For instance:
+
+;; * detect checkmate
+;; * detect stalemate (when the player in turn has no legal moves to make while their King is not in check. It's a draw)
+;; * Might be useful to implement pawn's en-passant rule
+;;
+
+;; ## Defining a "Game"
+
+;; So far we've been growing our chess language from the bottom up: modeling
+;; pieces, boards, partial moves, move-generation applying expansion and
+;; aggregate rules, and the rule functions.
+;;
+;; Except for the rule functions, everything else is generic: not chess-specific. These general functions live under `core`.
+;;
+;; We need to model the concept of a _game_ definition, for example for chess. What constitues a game definition? So far we have:
+;; * Expansion rules
+;; * Aggregate rules
+;; * Board dimensions
+;; * Initial board position
+;; * A name :-)
+
+;; So, in `core` we have a simple helper function to create a new game definition:
+^{::clerk/visibility {:code :show :result :hide}}
+(defn make-game [name initiate-board-fn expansion-rules aggregate-rules]
+  {:name name
+   :initiate-board-fn initiate-board-fn
+   :expansion-rules expansion-rules
+   :aggregate-rules aggregate-rules})
+
+
+;; and then, on our `chess` namespace we can define our game:
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code "(def chess-game (core/make-game
+                  \"Chess\"
+                  initiate-chess-board
+                  chess-expansion-rules
+                  chess-aggregate-rules))")
+
+
+;; ## Starting a "Game"
+
+;; We have our game defined. How we'd need what will be the "public interface"
+;; for using (playing) games.
+;;
+;; The first thing we need is a way to start a game. That is, to get an _instance_ of a game. In `core`:
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code "(defn start-game
+  \"Starts a new game for the given game definition and (optional) initial board\"
+  ([gamedef]
+   (start-game gamedef ((:initiate-board-fn gamedef))))
+  ([gamedef initial-board]
+   {:game-def gamedef
+    :board initial-board
+    :turn 0}))")
+
+;; Function `start-game` returns what is the initial _state_ of a game, with a reference to the game definition.
+;
+;; So now we can use our chess game definition to start a new game instance:
+
+^{::clerk/viewers (concat [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer] clerk/default-viewers)
+  ::clerk/auto-expand-results? true}
+(def game-1 (core/start-game chess/chess-game))
+
+
+;; And, and generate all possible moves for the start position... here sorted by the landing position of the moved piece:
+#_(clerk/row
+ (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
+      (sort-by #(-> % :steps last :piece :pos)
+               (core/possible-pmoves game-1))))
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/code
+ "(sort-by #(-> % :steps last :piece :pos)
+          (core/possible-pmoves game-1))")
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/row
+ (map (partial clerk/with-viewer viewers/board-move-viewer)
+      (->> (core/possible-pmoves game-1)
+           (sort-by #(-> % :steps last :piece :pos)))))
+
+
+
+
+;; ## Next... (as an exercise?)
+;;
+;; For a full working version of our model, we need to _apply_ a possible move to our game state.
+;; We'd need to keep track of the history of moves as part of the game state.
+;;
+;; We will probably also need game-specific rules at the game-state level. For
+;; instance, to decide whether the game is over or not, and tell who won!
+;;
+;; With that in place, we could, for example, implement a user-interface. We'd
+;; basically need to implement the _game loop_.
+
+;; And, of course: the goal was to model a generic core, so we could implement the rules for other games. For example:
+;;
+;; * Tic-Tac-Toe: One interesting thing about it is that pieces are added to the
+;;   board, not moved. So, we'd probably need our `expansion-rules` map to have
+;;  a place for that
+;; * Checkers: Sussman's book does implement the rules of checkers, you can steal from there :-)
+;; * Connect-four?
+;; * Othello?
+;; * Go? (the board would need to render pieces on the corners instead of inside squares, but's its still a grid board)
+;;
+;; Going crazy, we could generalize the _board_ to be a graph (not just a
+;; grid)... which would acomodate a lot more games.
+;;
+;; ## Thanks!
+;;
+;; If you really read this far... **Thanks!**.  I'd appreciate any ideas and suggestions for improvements!
+
+;; See [Further Reading](./furtherreading) for suggested references.
+;;
 
 #_
 
@@ -1019,18 +1179,7 @@ example-move
 
 
 
-;; ## Display All Possible Moves
 
-
-;; OK, let's generate all the possible moves from a starting chess board. We sort
-;; them by piece coordinate, and show them visually:
-
-(def game-1 (core/start-game chess/chess-game))
-
-(clerk/row
- (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
-      (sort-by #(-> % :steps last :piece :pos)
-               (core/possible-pmoves game-1))))
 
 #_(comment
   ;; Just for kicks, let's do the same off the random board we've created at the beginning:
@@ -1040,15 +1189,3 @@ example-move
   (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
        (sort-by #(-> % :steps last :piece :pos)
                 (core/possible-pmoves a-random-game)))))
-
-
-
-
-
-
-;; ## Next... as an exercise
-;;
-;; Here are some of the pending ideas to implement
-
-;; * Implement rules for other games (TTT, checkers)
-;; * implement a game loop: to actually 'play'. Basically: "apply" moves to a game state
