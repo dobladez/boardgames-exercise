@@ -30,7 +30,7 @@
   [:li [:a {:href (clerk/doc-url "notebooks/closing")} "Closing Thoughts"] ": Some thoughts, recommended readings and resources"]])
 
 
-;; I'd appreciate any ideas and suggestions for improvements!\
+;; I'd appreciate any ideas and suggestions!\
 ;; All code and notebooks on [this git repo](https://github.com/dobladez/boardgames-exercise/) \
 ;; Twitter/X: [@dobladez](https://twitter.com/dobladez) - Mastodon: [@dobladez@mastodon.social](https://mastodon.social/@dobladez)
 

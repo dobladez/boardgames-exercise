@@ -52,7 +52,8 @@
 ;; If you don't know Clojure:
 ;;
 ;;   * I hope the code is not too hard to follow. I tried to use only basic
-;; features of the language, and no external library depedencies
+;; features of the language, and no external library depedencies. This is not a
+;; tutorial on Clojure (yet?) but I try to explain the code as I go
 ;;   * Hey, this might be a good opportunity for you to learn and try Clojure!
 ;;   * If you don't want to use Clojure, that's fine too: I'd encourage you to
 ;; re-implement this exercise in your favorite language as you follow the code
@@ -60,36 +61,33 @@
 ;;
 ;; ### Clojure code-stepping debugger
 ;;
+;;
 ;; Let's first define a function `hello-message` that receives a `name` (String) and returns a `"Hello ... !"` message (String):
 
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}}
 (defn hello-message [name]
   (str "Hello " name "!"))
 
-;; If you are new to Lisp languages, the biggest syntax difference is in the way
-;; you call a function: on C/JavaScript-like syntax you write: `functionName(arg1,
-;; arg2, ...)`, while in Lisp/Clojure you write: `(function-name arg1 arg2 ...)` instead.
 ;;
 ;; If you are new to Lisp languages, the biggest syntax difference is in the way
 ;; you call a function:[^lisp_simplification]
 ;; * in C/JavaScript-like syntax: `functionName(arg1, arg2, ...)`
 ;; * in Lisp/Clojure syntax: `(function-name arg1 arg2 ...)`
-;; [^lisp_simplification]: an over-simplification off-course, but not a lie
+;; [^lisp_simplification]: an over-simplification of course, but not a lie
 ;;
 ;; Here's an expression that calls the above function passing `"World"`, which evaluates to, you guessed it, `"Hello World!"`:
 ^{:nextjournal.clerk/visibility {:code :show :result :show}}
 (hello-message "World")
 
 ;;
-;; To make some code snippets easier to follow on these notebooks, I worked on a code viewer that let's you step through the code execution (back and forth).[^flowstorm]
+;; To make some code snippets easier to follow on these notebooks, I worked on a code viewer that let's you step through the code execution (back and forth).[^flowstorm] \
+;; \
+;; Given the function above, let's evaluate the following code snippet, which: \
+;; 1 - First calls that function passing `"World"`, and then \
+;; 2 - repeats the result (returned by function `hello-message`) ten times, evaluating to a sequence:
 ;; [^flowstorm]: Based on the (amazing!) [FlowStorm](https://www.flow-storm.org/) by [jpmonettas](https://github.com/sponsors/jpmonettas) ![](https://github.com/flow-storm/flow-storm-debugger/raw/master/docs/images/icon.png)
 
 #_ "I'm sorry if you favorite language doesn't have something like it. Just wait... every good thing from Lisp/Clojure finds its way into other languages, only decades later ;-)"
-
-;;
-;; Given the function above, let's evaluate the following code snippet, which:
-;; 1. first calls that function passing `"World"`, and then
-;; 2. repeats the result (returned by function `hello-message`) ten times, evaluating to a sequence:
 
 ^{::clerk/visibility {:code :hide :result :show}
   ::clerk/width :wide
@@ -103,7 +101,7 @@
 ;;
 ;; ### Code organization
 ;;
-;; In case you jump straight to the codebase instead of reading the walktrough: The code is organized in the following namespaces:
+;; The code is organized in the following namespaces:
 ;;
 ^{::clerk/visibility {:code :hide :result :show}}
 (clerk/html
@@ -136,4 +134,4 @@
 ;; ### GO! 🏁
 ;;
 ^{::clerk/visibility {:code :hide :result :show}}
-(clerk/html [:p "Enough talk. Start the " [:a {:href (clerk/doc-url "notebooks/walkthrough")} "Code Walkthrough"] " of the implementation."])
+(clerk/html [:p "Enough talk. Start the " [:a {:href (clerk/doc-url "notebooks/walkthrough")} "code walkthrough"] " of the implementation."])
