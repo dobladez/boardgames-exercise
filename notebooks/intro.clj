@@ -4,15 +4,17 @@
             [nextjournal.clerk :as clerk]
             [flow-storm.clerk :as clerk-storm]))
 
-; # Modeling Chess: Introduction
+;; # Modeling Chess: Introduction
 ;;
-;; ---
-;; 1. [Welcome](./welcome)
-;; 1. Introduction 👈 __you are here__
-;; 1. [Code Walkthrough](./walkthrough)
-;; 1. [Further Reading](./furtherreading)
-;; ---
-;;
+
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/html
+ [:ol.border-b
+  [:li [:a {:href (clerk/doc-url "notebooks/welcome")} "Welcome"]]
+  [:li [:strong "Introduction"]]
+  [:li [:a {:href (clerk/doc-url "notebooks/walkthrough")} "Code Walkthrough"]]
+  [:li [:a {:href (clerk/doc-url "notebooks/furtherreading")} "Further Reading"]]])
+
 ;; ### Background story
 ;;
 ;; * I was helping undergraduate students with a coding exercise about modeling
@@ -98,22 +100,40 @@
   #_(let [msg (hello-message "World")]
     (repeat 10 msg)))
 
-
+;;
 ;; ### Code organization
 ;;
 ;; In case you jump straight to the codebase instead of reading the walktrough: The code is organized in the following namespaces:
 ;;
-;; |namespace | description|
-;; |----------|------------|
-;; |[clerk-viewers](/src/boardgames/clerk_viewers) | The graphical widgets to visualize boards and moves on Clerk notebooks |
-;; |[core](/src/boardgames/core/) | generic domain to model board games|
-;; |[chess](/src/boardgames/chess/) | implementation of classic Chess (WIP)|
-;; |[checkers](/src/boardgames/checkers) | implementation of Checkers (_TBD_) |
-;; |[ttt](/src/boardgames/ttt) | implementation of Tic-Tac-Toe  (_TBD_) |
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/html
+ [:ul
+  [:li [:a {:href (clerk/doc-url "src/boardgames/core")} "boardgames.core: "] [:span "Generic domain to model board games"]]
+  [:li [:a {:href (clerk/doc-url "src/boardgames/chess")} "boardgames.chess: "] [:span "Implementation of classic Chess"]]
+  [:li [:a {:href (clerk/doc-url "src/boardgames/core")} "boardgames.checkers: "] [:span "Implementation of Checkes (TBD)" ]]
+  [:li [:a {:href (clerk/doc-url "src/boardgames/ttt")} "boardgames.ttt: "] [:span "Implementation of Tic-Tac-Toe (TBD)"]]
+  [:li [:a {:href (clerk/doc-url "src/boardgames/ttt")} "boardgames.clerk-viewers: "] [:span "The graphical widgets to visualize boards and moves on Clerk notebooks"]]
+  ])
+
+#_
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/table
+ (clerk/use-headers [["namespace" "description"]
+                     [(clerk/html [:a {:href (clerk/doc-url "src/boardgames/core")} "boardgames.core"]) "Generic domain to model board games"]
+                     [(clerk/html [:a {:href (clerk/doc-url "src/boardgames/chess")} "boardgames.chess"]) "Implementation of classic Chess"]
+                     [(clerk/html [:a {:href (clerk/doc-url "src/boardgames/checkers")} "boardgames.checkers"]) "Implementation of Checkes (TBD)"]
+                     [(clerk/html [:a {:href (clerk/doc-url "src/boardgames/ttt")} "boardgames.ttt"]) "Implementation of Tic-Tac-Toe (TBD)"]
+                     [(clerk/html [:a {:href (clerk/doc-url "src/boardgames/clerk-viewers")} "boardgames.clerk-viewers"]) "The graphical widgets to visualize boards and moves on Clerk notebooks"]]))
+
+
+
+
+
 ;;
 ;; Repo at: https://github.com/dobladez/boardgames-exercise
 ;;
 
 ;; ### GO! 🏁
 ;;
-;; Enough talk. Start the [code walkthrough](./walkthrough) of the implementation.
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/html [:p "Enough talk. Start the " [:a {:href (clerk/doc-url "notebooks/walkthrough")} "Code Walkthrough"] " of the implementation."])

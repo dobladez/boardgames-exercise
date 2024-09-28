@@ -2,33 +2,33 @@
 (ns welcome
   (:require [nextjournal.clerk :as clerk]
             [intro]
-            [walkthrough]
-            ))
+            [walkthrough] ))
 
 ;; # Coding Exercise: Modeling Chess
 ;;
 ;;
-;;  > __Assignment__: Model the rules of Chess. Design the code with the
+;;  __Assignment__: Model the rules of Chess. Design the code with the
 ;;  flexibility to easily add new types of pieces with unique movements. The
 ;;  goal is to create a shared core model that can also be used for other
-;;  board games, such as Checkers, Tic-Tac-Toe, and similar
-;;
-(clerk/html [:div.text-sm.border-t.py-4
-             [:strong "TL;DR: "]
-             [:span "jump straight to the " [:a {:href "./notebooks/walkthrough"} " Code Walkthrough"]]])
-;; ⚠️ **Spoiler Alert!** This is a solution to exercise 2.13 of book _"Software Design for
-;; Flexibility."_[^sdff_book]\
+;;  board games, such as Checkers, Tic-Tac-Toe, and similar. \
+;;  \
+;; ⚠️ **Spoiler Alert** ⚠️: This is a solution to exercise 2.13 of book _"Software Design for
+;; Flexibility."_[^sdff_book] \
 ;; \
 ;; 🐰🕳️  What started as a whiteboard discussion sent me down a rabbit-hole to attempt
 ;; a functional and (hopefully) simple implementation... then document it, then
 ;; prepare it for a presentation, add visualizations, notebooks, implement a
 ;; better code viewer, ...
-;; 1. [Introduction](./notebooks/intro): Why!? Some more background. Goal. On Clojure
-;; 1. [Code Walkthrough](./notebooks/walkthrough): Code Walkthrough of a possible solution. Be patient, might take a few seconds to load!
-;; 1. [Further Reading](./notebooks/furtherreading): Some references and resources
 ;; [^sdff_book]: by Chris Hanson and Gerald Jay Sussman ![image](https://mit-press-us.imgix.net/covers/9780262045490.jpg?auto=format&w=298&dpr=2&q=80)
+;;
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/html
+ [:ol.border-b.pb-4
+  [:li [:strong "Welcome"] [:i " 👈 you are here"]]
+  [:li [:a {:href (clerk/doc-url "notebooks/intro")} "Introduction"] ": Why!? Some more background. Goal. Clojure" ]
+  [:li [:a {:href (clerk/doc-url "notebooks/walkthrough")} "Code Walkthrough"] ": Code walkthrough of a solution (might take a few seconds to load!)"]
+  [:li [:a {:href (clerk/doc-url "notebooks/furtherreading")} "Further Reading"] ": Some references and resources"]])
 
-;; ---
 
 ;; I'd appreciate any ideas and suggestions for improvements!\
 ;; All code and notebooks on [this git repo](https://github.com/dobladez/boardgames-exercise/) \

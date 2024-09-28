@@ -13,17 +13,19 @@
             ;;            [boardgames.checkers :as checkers]
             [boardgames.utils :as utils]
             [boardgames.test-utils :as t]
-
+            [boardgames.clerk-testrunner] ;; <-- needed to trigger test runner
             [flow-storm.clerk :as clerk-storm]))
 
 ;; # Modeling chess: Code Walkthrough
 
-;; ---
-;; 1. [Welcome](./welcome)
-;; 1. [Introduction](./intro)
-;; 1. Code Walkthrough 👈 __you are here__
-;; 1. [Further Reading](./furtherreading)
-;; ---
+^{::clerk/visibility {:code :hide :result :show}}
+(clerk/html
+ [:ol.border-b
+  [:li [:a {:href (clerk/doc-url "notebooks/welcome")} "Welcome"]]
+  [:li [:a {:href (clerk/doc-url "notebooks/intro")} "Introduction"]]
+  [:li [:strong "Code Walkthrough" ]]
+  [:li [:a {:href (clerk/doc-url "notebooks/furtherreading")} "Further Reading"]]])
+
 
 #_(clerk/html [:ol
                [:li [:a {:href (nextjournal.clerk.viewer/doc-url 'boardgames.clerk-viewers)} "clerk-viewers"]]
@@ -148,8 +150,8 @@
 
 (core/empty-board 3 3)
 
-;; We'll use the [`core`](/src/boardgames/core/) namespace for the code that is generic about the domain
-;; of grid games. And we'll use another namespace for each game, like [`chess`](/src/boardgames/chess/).
+;; We'll use the [`core`](../../src/boardgames/core/) namespace for the code that is generic about the domain
+;; of grid games. And we'll use another namespace for each game, like [`chess`](../../src/boardgames/chess/).
 
 ;;
 ;; ## Visualizing our domain
@@ -182,7 +184,7 @@
 (core/empty-board 8 8)
 
 
-;; We are not going to go into the boards rendering code right now. If you are curious, feel free to peek into the [`clerk-viewers`](../src/boardgames/clerk_viewers) namespace.[^clerk-viewers-impl]
+;; We are not going to go into the boards rendering code right now. If you are curious, feel free to peek into the [`clerk-viewers`](../../src/boardgames/clerk_viewers) namespace.[^clerk-viewers-impl]
 ;; [^clerk-viewers-impl]: Warning: the implementation of the viewers is a bit messy... needs some clean-up
 
 ;; Let's create one with a few pieces:
@@ -237,7 +239,7 @@
 
 ;;
 ;; Of course, we want to have a function for that: `chess/initialize-chess-board` (in the
-;; [`chess`](/src/boardgames/chess/) namespace). Its implementation is almost exactly
+;; [`chess`](../../src/boardgames/chess/) namespace). Its implementation is almost exactly
 ;; like the last snippet above.
 ;;
 ;; Let's try it here:
@@ -609,7 +611,7 @@ example-move
 ;; code new ones for all piece types. It's crucial to have automated tests to
 ;; validate our implementations as we go.
 ;;
-;; [^tdd-religion]: Worshipers of the TDD would've started writing tests much
+;; [^tdd-religion]: Worshipers of TDD would've started writing tests much
 ;; earlier. During the early stages of a new problem, I find Clojure's
 ;; live interactive environment more productive: It gives me the immediate
 ;; feedback I want. I start writing tests when I need... well... tests :-)
@@ -673,7 +675,7 @@ example-move
 
 ;; Hallucinate no more: I wrote `expect-moves` for you already. We won't dig
 ;; into it here. Of course, feel free to peek at it on
-;; namespace [`test-utils`](../test/boardgames/test_utils) (warning: it's a bit
+;; namespace [`test-utils`](../../test/boardgames/test_utils) (warning: it's a bit
 ;; messy).
 ;;
 ;; It's written using _assertions_ from Clojure's standard testing
@@ -715,7 +717,7 @@ example-move
                                   [- - p] [- R p] [- - R]
                                   [K - -] [K - -] [K - -]]))
 
-;; And with out test viewer:
+;; And with our test viewer:
 ^{::clerk/visibility {:code :hide :result :show}
    ::clerk/viewers (concat [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer] clerk/default-viewers) }
 (t/view-test-case  tc1-result)
@@ -729,7 +731,9 @@ example-move
 ^{::clerk/visibility {:code :hide :result :show}
   ::clerk/viewers (concat [clerk.test/test-suite-viewer viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer] clerk/default-viewers)
   ::clerk/auto-expand-results? true}
-@clerk.test/!test-report-state
+(do
+  #_(defonce test-run (boardgames.clerk-testrunner/run-tests-on-clerk))
+  @clerk.test/!test-report-state )
 
 
 #_^{::clerk/visibility {:code :hide :result :show}
@@ -807,7 +811,7 @@ example-move
 ;;
 ;; This is where I spent most of the time modeling and trying different
 ;; alternatives. Here I'm showing you the current (final?) result at a high
-;; level. All the code lives in the [`chess`](/src/boardgames/chess/) namespace.[^draw-owl]
+;; level. All the code lives in the [`chess`](../../src/boardgames/chess/) namespace.[^draw-owl]
 ;; [^draw-owl]: This paragraph reminds me of the famous meme: [![img](https://i.kym-cdn.com/photos/images/original/000/572/078/d6d.jpg)](https://i.kym-cdn.com/photos/images/original/000/572/078/d6d.jpg)
 
 
@@ -1110,7 +1114,7 @@ example-move
 
 
 
-;; ## Next... (as an exercise?)
+;; ## Next... (more exercises for the reader)
 ;;
 ;; For a full working version of our model, we need to _apply_ a possible move to our game state.
 ;; We'd need to keep track of the history of moves as part of the game state.
@@ -1136,7 +1140,7 @@ example-move
 ;;
 ;; ## Thanks!
 ;;
-;; If you really read this far... **Thanks!**.  I'd appreciate any ideas and suggestions for improvements!
+;; If you really read this far... **Thanks!** I'd appreciate any ideas and suggestions for improvements!
 
 ;; See [Further Reading](./furtherreading) for suggested references.
 ;;
