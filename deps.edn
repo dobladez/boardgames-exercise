@@ -1,6 +1,11 @@
 {:paths ["src" "notebooks" "dev"]
  :deps { #_#_ org.clojure/clojure {:mvn/version "1.11.1"}
-        io.github.nextjournal/clerk {:mvn/version "0.16.1016"} }
+        io.github.nextjournal/clerk {:mvn/version "0.16.1016"
+                                     #_#_#_#_:git/url "https://github.com/nextjournal/clerk.git" :sha "47d0e273643c64d1bfa9908f43f192daf50611ca"
+
+
+                                     } }
+
  :aliases
  {:dev
   {;; for disabling the official compiler (to use flow-storm):
@@ -17,6 +22,10 @@
               #_"-Dclojure.storm.instrumentOnlyPrefixes=boardgames,nextjournal.clerk"
               "-Dclojure.storm.instrumentOnlyPrefixes=boardgames,scratchpad,intro,walkthrough"]}
 
+  :test
+  {:extra-paths ["test"]
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+   :main-opts ["-m" "kaocha.runner"]}
 
   ;; This alias is used by https://clerk.garden/.
   :nextjournal/clerk

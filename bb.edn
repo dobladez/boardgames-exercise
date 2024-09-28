@@ -4,10 +4,7 @@
   :init
   (defn X [cmd]
     (let [args *command-line-args*]
-      (if (even? (count args))
-        (apply shell cmd args)
-        (do (println "Please supply an even number of arguments!")
-            (System/exit 1)))))
+      (apply shell cmd args)))
 
   clerk-watch
   {:doc "Start a Clerk dev server. Any options supplied are passed to `clerk/serve!`."
@@ -30,4 +27,9 @@
   lint
   {:doc "Lint the src and dev directories with clj-kondo."
    :task (clj-kondo/print!
-          (clj-kondo/run! {:lint ["src" "dev"]}))}}}
+          (clj-kondo/run! {:lint ["src" "dev"]}))}
+
+  test
+  {:doc "Run tests"
+   :task (do (X "clojure -M:dev:test"))}
+  }}
