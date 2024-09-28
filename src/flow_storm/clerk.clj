@@ -293,6 +293,8 @@
                    (let [{:keys [timeline presented-values callstacks callstack-entries]} ser-timeline
                          step @!current-step
                          max-step-n (dec (count timeline))
+                         can-prev? (< 0 @!current-step)
+                         can-next? (< @!current-step max-step-n)
                          tl-entry (get timeline step)
                          get-form-id (fn [tl-e]
                                        (if (= :fn-call (:type tl-e))
@@ -307,11 +309,11 @@
                          #_#_highlight-styles "background-color: rgb(253 230 138); border-bottom: solid 1px gray; font-weight: bold;" ;; TODO: use a class?
                          highlight-styles-cl {:background-color "rgb(253 230 138)" :border-bottom "solid 1px gray" :font-weight "bold" :color "#000000c9"}]
 
-                     [:div.justify-stretch.grid.grid-cols-5.border-4.border-solid.border-indigo-500.rounded-md
-                      {}
-                      [:div.col-span-3.flex.flex-col.justify-end
+                     [:div.justify-stretch.grid.grid-cols-5.grid-rows-1.border-4.border-solid.border-indigo-500.rounded-md
+                      {:class "max-h-[95svh] min-h-[60svh]"}
+                      [:div.col-span-3.flex.flex-col.justify-end.h-full
 
-                       [:div.forms.viewer.text-xs.XXXXXcode-viewer.bg-slate-100.dark:bg-slate-800.rounded-tl-md
+                       [:div.forms.viewer.text-xs.XXXXXcode-viewer.bg-slate-100.dark:bg-slate-800.rounded-tl-md.overflow-auto
                         {:ref (fn [el] (reset! !forms-el el))}
 
                         (let [resolved-stack (->> tl-entry :callstack (get callstacks) (map callstack-entries))
@@ -352,16 +354,15 @@
 
                         #_[:div.border-t-2
                            (nextjournal.clerk.render/render-code (str code-form) {:language "clojure"})]]
-                       [:div.font-sans.text-sm.text-center.opacity-75.p-2 "⬆ call stack ⬆"]]
+                       [:div.font-sans.text-sm.text-center.opacity-75.p-2
+                        (if can-next? "⬆ call stack ⬆" "🏁 THE END 🏁")]]
 
 ;; ----------------------------
 
-                      [:div#stepper.flex.flex-col.col-span-2.rounded-r-md.border-l.border-indigo-600
-                       #_{:style {:bottom 15 :right 15 :width 600 :height 700 :z-index 10000}}
-                       {:style {:height 700}}
-
-                       (let [can-prev? (< 0 @!current-step)
-                             can-next? (< @!current-step max-step-n)]
+                      [:div#stepper.flex.flex-col.col-span-2.rounded-r-md.border-l.border-indigo-600.h-full
+                       {:Xclass "max-h-[95svh]"}
+                       (let [#_#_can-prev? (< 0 @!current-step)
+                             #_#_can-next? (< @!current-step max-step-n)]
                          [:div#stepper-toolbar.p-2.w-full.flex.justify-between.font-medium.font-sans.text-sm.bg-slate-200.dark:bg-slate-700.rounded-tr-md
 
                           [:div.flex.gap-2
@@ -386,7 +387,7 @@
                        [:div#stepper-val.h-full.w-full.overflow-auto.grow.font-sans.text-sm
 
                         [:div#stepper-val-header.bg-slate-200.dark:bg-slate-700
-                         (cond (zero? step) [:div.p-2 "Press Prev/Next to step through the code execution back and forth"]
+                         (cond (zero? step) [:div.p-2 "Press Prev/Next ☝️ to step through the code execution back and forth"]
                                (= step max-step-n)  [:div.p-2 "Final result:"]
                                :else
                                (case (:type tl-entry)
@@ -407,12 +408,12 @@
                                  (assoc presented-value :nextjournal/expanded-at
                                         {[1 2 1 0] true, [0 2 1] true, [1 2 1] true, [1 2 1 1] true, [] true, [0 2 1 1] true, [0] true, [1] true, [0 2 1 0] true}
                                         #_{[] true
-                                              [0 1] true
-                                              [1 1] true
-                                              [2 1] true
-                                              [3 1] true
-                                              [4 1] true
-                                              [5 1] true }))
+                                           [0 1] true
+                                           [1 1] true
+                                           [2 1] true
+                                           [3 1] true
+                                           [4 1] true
+                                           [5 1] true}))
 
                                 #_(update presented-value
                                           :nextjournal/render-opts

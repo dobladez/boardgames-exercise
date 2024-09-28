@@ -32,6 +32,8 @@ the Clerk server.
 
 ```
 bb test
+# or:
+bb test --skip-meta :failing-on-purpose
 ```
 
 ## To build the static site
