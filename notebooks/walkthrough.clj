@@ -166,7 +166,7 @@
 ;; Development](https://moldabledevelopment.com/), a way of programming through
 ;; custom tools built for each problem.
 
-;; **💡Tip:** Spend time dreaming-up new tools to make your job easier, less
+;; **💡Tip:** Do spend time dreaming-up new tools to make your job easier, less
 ;; error-prone, more "explainable", visual, easiert to monitor, etc. In my
 ;; experience, most of us developers do not spend enough time working on our own
 ;; tools... we just work with what's already available to us.
@@ -259,8 +259,9 @@
 (def symboard (core/board->symbolic a-chess-board))
 
 
-;; This technique of having another an alternate representation for an domain
-;; entity is quite common and useful in many situations.
+;; **💡Tip:** This technique of having another an alternate representation for
+;; an domain entity is quite common and useful in many situations. Some problems
+;; become easier from a different perspective/representation.
 
 ;; For example: What if we want to shuffle all the pieces on the board? With the
 ;; matrix representation it's easy to manipulate the pieces using Clojure's
@@ -829,26 +830,33 @@ example-move
    ④  (pmoves-finish-and-continue))))")
 
 ;; The code is a pipeline, which takes a `pmove` and then:
-;; 1. expands the pmove on all for orthogonal offsets (directions)
+;; 1. expands the pmove on the four offsets (directions) of ther rook
 ;; 2. discards the pmove's which land on the same player's piece or change direction (Rooks can only move straight)
 ;; 3. modifies the pmoves that capture an opponent piece
 ;; 4. for all remaining pmoves, return two versions: one with `:finished? false` and one with  `:finished? true`
 
-;; #### A general pattern here
 
-;; As we work on implementing most pieces, you will see that the general pattern
-;; for each move-expansion function follows this shape:
+;; ### The Bishop and Queen
+
+;; The implementations for the Bishop and Queen are pretty much identical to
+;; that of the Rook, except for the initial direction offsets. So I won't copy
+;; them here.
+
+;; A dummy code linter might complain here saying that there's too much "code
+;; duplication"... and we should "factor out" the common code of
+;; rook/bishop/queen here. We must keep our code "DRY"[^dry], right?
+
+;; Not really... I'm perfectly fine here keeping the definition of each piece
+;; independent of each other, and expressed clearly.
+;; [^dry]: DRY (Don't Repeat Yourself) principle
 ;;
-;; 1. _Expand_: For the given `pmove`, generate a new one for each of the offsets supported by the piece type
-;; 1. _Discard_: those `pmoves` that don't pass either one of the checks (predicates) specified
-;; 1. _Modify_ (or, _enrich_): update the `pmoves`, for example when capturing, or promoting
-;; 1. _Finish_: Mark some `pmoves` as `:finished`, maybe keeping the original one as unfinished for the next iteration
-
+;; **💡Tip:** Sometimes we abuse the DRY principle. It's not about not repeating
+;; "lines of code"; it's about not repeating a _design decision_ on multiple
+;; places... to avoid the risk of making a change only on one of those places. I
+;; don't see that risk here.
 
 
 ;; ### The Knight
-;; The implementation of Bishop and Queen is pretty much identical to the
-;; Rook. So let's peak at the Knight:
 
 ^{::clerk/visibility {:code :hide :result :show}}
 (clerk/code
@@ -870,8 +878,9 @@ example-move
 ;; Note how for Knights it makes sense to use a single step for the whole
 ;; move. Nobody said that our offsets are limited to increments of 1!
 
-;; ### A general pattern here
-;; As we worked on implementing most pieces, you can see that the general pattern for each
+;; ### See a general pattern here?
+;;
+;; As we work on implementing all piece rules, you can see that the general pattern for each
 ;; move-expansion function follows this shape:
 ;;
 ;; 1. _Expand_: For the given `pmove`, generate a new one for each of the offsets supported by the piece type
