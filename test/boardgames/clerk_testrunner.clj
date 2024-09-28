@@ -2,11 +2,18 @@
   {:nextjournal.clerk/visibility {:code :hide :result :show} }
 
   (:require [clojure.test :as test]
-            [boardgames.pawn-test]
-            [boardgames.kingcheck-test]
+
             [boardgames.clerk-viewers :as viewers]
             [nextjournal.clerk :as clerk]
-            [nextjournal.clerk.test :as clerk.test]))
+            [nextjournal.clerk.test :as clerk.test]
+
+            ;; note: require all test ns' to ensure they are all loaded before the runner
+            [boardgames.pawn-test]
+            [boardgames.rook-test]
+            [boardgames.simple-test]
+            [boardgames.kingcheck-test]
+
+            ))
 
 
 ^{:nextjournal.clerk/visibility {:code :hide :result :hide}}

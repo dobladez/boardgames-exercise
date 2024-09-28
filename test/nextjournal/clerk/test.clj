@@ -224,14 +224,14 @@
 
                   #_[:tr [:td [:pre "Actual: " [:pre (pr-str actual)]] [:pre "Expected: " [:pre (pr-str expected)]]]]
 
+
                   (when (try
-                          (and (mapv boardgames.core/symbolic->board actual)
-                               (mapv boardgames.core/symbolic->board expected))
+                          (mapv boardgames.core/symbolic->board (second (second actual)))
                           (catch Exception e
                             false))
                         (list
-                         (let [expected-boards expected ;; (second (second actual))
-                               actual-boards actual;; (nth (second actual) 2)
+                         (let [expected-boards (second (second actual)) #_ expected
+                               actual-boards (nth (second actual) 2) #_ actual
                                [diff-expected diff-actual diff-correct] (map vec (data/diff (set expected-boards) (set actual-boards)))]
                            (for [m [{:label "Correct: " :boards diff-correct}
                                     {:label "Expected but missing:" :boards diff-expected}
@@ -277,10 +277,7 @@
 (def test-ns-viewer {:transform-fn (viewer/update-val (comp viewer/html test-ns-badge))})
 
 (def test-suite-viewer
-  {:pred (fn [v] (let [x (and (map? v) (contains? v :test-nss) (contains? v :summary))]
-                   (println "*********** test-suite-viewer pred: " x)
-                   x
-                   ))
+  {:pred (fn [v] (and (map? v) (contains? v :test-nss) (contains? v :summary)))
    :transform-fn (comp viewer/mark-preserve-keys
                        (viewer/update-val
                         (fn [state]

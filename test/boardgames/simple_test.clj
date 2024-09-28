@@ -10,9 +10,9 @@
 
 
 
-(deftest failing-on-purpose
+(deftest ^:ignore-failure failing-on-purpose
 
-#_  (t/expect-chess-moves {:piece :R}
+  (t/expect-chess-moves {:piece :R}
                         '[[p R -]
                           [- - -]
                           [- K -]]
