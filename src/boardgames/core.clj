@@ -1,4 +1,7 @@
-;; # Core domain:  Primitives to represent grid board games
+;; # Core domain
+
+
+;; Modeling grid-board games
 
 ^{:nextjournal.clerk/visibility {:code :hide}}
 (ns boardgames.core
@@ -10,9 +13,7 @@
  ::clerk/auto-expand-results? true
  ::clerk/budget 1000}
 
-;;
-;; ## Operations on a Piece
-;;
+;; ## Pieces
 (defn new-piece
   ([type player pos] (new-piece type player pos nil))
   ([type player pos flags] {:type type
@@ -29,7 +30,6 @@
 (defn piece-never-moved? [piece]
   (not (piece-flag? piece :moved)))
 
-
 (defn move-piece-to [piece new-pos]
   (-> piece
       (assoc :pos new-pos)
@@ -42,7 +42,7 @@
 ;; ## Offsets
 ;;
 ;; We use tuples of [column row] offsets to represent shifts in
-;; position. Here we use unicode arrow names for all 1-step offsets
+;; position of a piece. Here we use unicode arrow names for all 1-step offsets
 (def ↑ [0 +1])
 (def ↓ [0 -1])
 (def → [+1 0])
@@ -74,7 +74,7 @@
 (defn pos+ [pos offset]
     (mapv + pos offset))
 ;;
-;; ## Operations on a Board
+;; ## Boards
 ;;
 (defn new-board [row-n col-n pieces]
   (with-meta {:pieces (set pieces)
@@ -97,7 +97,9 @@
                                    (if (= 1 (:player piece))
                                      (symbol  (:type piece))
                                      (-> piece :type name upper-case symbol)))
-                         (catch Exception *ignore* ;; piece off the board boundaries?
+                         (catch Exception *ignore*
+                           ;; piece off the board boundaries?
+                           ;; TODO: avoid that state altogether
                            board)))
                      empty-vec)
              reverse
@@ -155,7 +157,7 @@
 ;;
 ;; While generating possible moves, a move is grown one step at a time. Here we
 ;; refer to them as `pmoves`  (for "partial move").  A `pmove` that is not
-;; `:finished?` may be expanded with more steps until it is discarded or become :finished?.
+;; `:finished?` may be expanded with more steps until it is discarded or become `:finished?`.
 ;;
 (defn new-pmove [board piece]
   {:steps (list {:board board :piece piece :flags #{}})
@@ -174,7 +176,8 @@
   (:type (:piece (first (:steps pmove)))))
 
 (defn expand-pmove
-  "Give a starting base pmove, return the list of all valid (finished) pmoves"
+  "Give a starting base pmove and a set of rules, return the list of all
+  valid (finished) pmoves"
   [expansion-rules base-pmove]
 
   (if-let [expand-pmove-step (get expansion-rules (pmove-piece-type base-pmove))]
@@ -188,7 +191,7 @@
 
 
 (defn candidate-pmoves*
-  "Generate all finished candidate pmoves for the given position and player"
+  "Generate all finished candidate pmoves for the given position, player and rules"
   [board player-turn expansion-rules]
   (->> board
        :pieces
@@ -197,7 +200,7 @@
 
 
 (defn candidate-pmoves
-  "Generate (using game expansion rules) list of finished pmoves candidates"
+  "Generate all finished candidate pmoves for the given game"
   [game-state]
 
   (let [{:keys [board game-def]} game-state]
@@ -211,6 +214,9 @@
 
   (->> (candidate-pmoves game-state)
        (apply-aggregate-rules game-state)))
+
+
+;; ### Modifying pmove
 
 (defn- pmove-add-step [pmove update-fn]
   (update-in pmove [:steps] conj (update-fn (-> pmove :steps first))))
@@ -250,6 +256,11 @@
                           (update-in [:board :pieces]
                                      #(reduce disj % captured-pieces)))))))))
 
+(defn pmove-finish [pmove]
+  (assoc pmove :finished? true))
+
+
+;; ### pmoves: Reading and Predicates
 (defn pmove-last-step-direction [pmove]
   (when (> (count (:steps pmove)) 1)
     (let [[last-step prior-step] (:steps pmove)]
@@ -268,14 +279,11 @@
         starting-board (:board first-step)
         last-step (-> pmove :steps first)
         piece (:piece last-step)]
-    (not (empty? (board-find-pieces starting-board (select-keys piece [:player :pos]))))))
+    (not (empty? (board-find-pieces starting-board
+                                    (select-keys piece [:player :pos]))))))
 
 (defn pmove-max-steps? [max pmove]
   (> (dec (count (:steps pmove))) max))
-
-
-(defn pmove-finish [pmove]
-  (assoc pmove :finished? true))
 
 (defn pmove-finished? [pmove]
   (:finished? pmove))
@@ -283,15 +291,63 @@
 (defn pmove-piece-1st-move? [pmove]
   (not (-> pmove :steps last :piece (piece-flag? :moved))))
 
+(defn pmove-changed-direction? [pmove]
+  (when (> (count (:steps pmove)) 1)
+    (< 1 (count
+          (into #{}
+                (for [[step-a step-b] (partition 2 1 (:steps pmove))]
+                  (mapv - (-> step-a :piece :pos) (-> step-b :piece :pos))))))))
 
-(defn switch-turn [game-state]
-  (update game-state :turn opponent-player))
+
+;; ### Expanding pmoves
+
+(defn expand-pmove-fixed-dir
+  "Expand pmove but only on its last step's direction. If no previous step,
+use all possible dirs. Useful for pieces that move in a straight line"
+  [possible-dirs pmove]
+  (let [previous-dir (pmove-last-step-direction pmove)
+        next-dirs (if previous-dir (list previous-dir) possible-dirs)]
+    (->> next-dirs
+         (map (partial pmove-move-piece pmove)))))
+
+(defn expand-pmove-dirs [possible-dirs pmove]
+  (let [player (-> pmove :steps first :piece :player)]
+    (->> possible-dirs
+         (map (partial adjust-dir-to-player player))
+         (map (partial pmove-move-piece pmove)))))
+
+(defn pmoves-finish-and-continue [pmoves]
+  (let [{finished true unfinished false} (group-by pmove-finished? pmoves)]
+    (concat unfinished finished (map pmove-finish unfinished))))
+
+(defn pmoves-finish-at-one-step [pmoves]
+  (concat pmoves (map pmove-finish pmoves)))
+
+(defn pmove-finish-capturing [pmove]
+  (let [first-step (-> pmove :steps last)
+        starting-board (:board first-step)
+        last-step (-> pmove :steps first)
+        piece (:piece last-step)]
+
+    ;; This supports capturing multiple pieces. Not needed for chess
+    (if-let [captured (seq (board-find-pieces starting-board
+                                              {:pos (:pos piece)
+                                               :player (opponent-player
+                                                        (piece :player))}))]
+      (-> pmove
+          (pmove-capture-piece captured)
+          pmove-finish)
+
+      pmove)))
+
+(defn pmoves-discard [pred coll]
+  (remove pred coll))
+
 
 ;;
 ;; ## Games
 ;;
 (defn make-game [name initiate-board-fn expansion-rules aggregate-rules]
-  ;; TODO validations
   {:name name
    :initiate-board-fn initiate-board-fn
    :expansion-rules expansion-rules
@@ -310,6 +366,9 @@
    {:game-def gamedef
     :board initial-board
     :turn 0}))
+
+(defn switch-turn [game-state]
+  (update game-state :turn opponent-player))
 
 
 ;; TODO:

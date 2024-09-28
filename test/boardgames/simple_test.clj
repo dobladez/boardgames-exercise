@@ -10,7 +10,7 @@
 
 
 
-(deftest ^:ignore-failure failing-on-purpose
+(deftest ^:failing-on-purpose failing-on-purpose
 
   (t/expect-chess-moves {:piece :R}
                         '[[p R -]
