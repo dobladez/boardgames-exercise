@@ -27,7 +27,7 @@
   [:li [:strong "Welcome"] [:i " 👈 you are here"]]
   [:li [:a {:href (clerk/doc-url "notebooks/intro")} "Introduction"] ": Why!? Some more background. Goal. Clojure" ]
   [:li [:a {:href (clerk/doc-url "notebooks/walkthrough")} "Code Walkthrough"] ": Code walkthrough of a solution (might take a few seconds to load!)"]
-  [:li [:a {:href (clerk/doc-url "notebooks/furtherreading")} "Further Reading"] ": Some references and resources"]])
+  [:li [:a {:href (clerk/doc-url "notebooks/closing")} "Closing Thoughts"] ": Some thoughts, recommended readings and resources"]])
 
 
 ;; I'd appreciate any ideas and suggestions for improvements!\

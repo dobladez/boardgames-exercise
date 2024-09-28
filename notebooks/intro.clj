@@ -13,7 +13,7 @@
   [:li [:a {:href (clerk/doc-url "notebooks/welcome")} "Welcome"]]
   [:li [:strong "Introduction"]]
   [:li [:a {:href (clerk/doc-url "notebooks/walkthrough")} "Code Walkthrough"]]
-  [:li [:a {:href (clerk/doc-url "notebooks/furtherreading")} "Further Reading"]]])
+  [:li [:a {:href (clerk/doc-url "notebooks/closing")} "Closing Thoughts"]]])
 
 ;; ### Background story
 ;;
@@ -112,7 +112,7 @@
   [:li [:a {:href (clerk/doc-url "src/boardgames/chess")} "boardgames.chess: "] [:span "Implementation of classic Chess"]]
   [:li [:a {:href (clerk/doc-url "src/boardgames/core")} "boardgames.checkers: "] [:span "Implementation of Checkes (TBD)" ]]
   [:li [:a {:href (clerk/doc-url "src/boardgames/ttt")} "boardgames.ttt: "] [:span "Implementation of Tic-Tac-Toe (TBD)"]]
-  [:li [:a {:href (clerk/doc-url "src/boardgames/ttt")} "boardgames.clerk-viewers: "] [:span "The graphical widgets to visualize boards and moves on Clerk notebooks"]]
+  [:li [:a {:href (clerk/doc-url "src/boardgames/clerk_viewers")} "boardgames.clerk-viewers: "] [:span "The graphical widgets to visualize boards and moves on Clerk notebooks"]]
   ])
 
 #_

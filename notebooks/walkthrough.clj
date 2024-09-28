@@ -24,7 +24,7 @@
   [:li [:a {:href (clerk/doc-url "notebooks/welcome")} "Welcome"]]
   [:li [:a {:href (clerk/doc-url "notebooks/intro")} "Introduction"]]
   [:li [:strong "Code Walkthrough" ]]
-  [:li [:a {:href (clerk/doc-url "notebooks/furtherreading")} "Further Reading"]]])
+  [:li [:a {:href (clerk/doc-url "notebooks/closing")} "Closing Thoughts"]]])
 
 
 #_(clerk/html [:ol
@@ -100,7 +100,7 @@
 ;; represent pieces as maps[^clojure_maps], and the board as a map too?. The board would
 ;; initially include its dimensions and the set of pieces.  This would be an
 ;; empty 8x8 board:
-;; [^clojure_maps]: a data structure to stores key-value pairs. Aka "dictionary", "hashmap", "associative array" in some languages
+;; [^clojure_maps]: a data structure to store key-value pairs. Aka "dictionary", "hashmap", "associative array" in some languages
 
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}
   ::clerk/auto-expand-results? true}
@@ -806,7 +806,7 @@ example-move
 
 ;; To keep a flexible design, we want to model all these constraints and
 ;; behaviors as independent functions operating on `pmoves`. All these functions
-;; become the _primitives_ which we can then combine to implement to complete
+;; become the _primitives_ which we can then combine to implement the complete
 ;; logic for each piece.
 ;;
 ;; This is where I spent most of the time modeling and trying different
@@ -829,10 +829,21 @@ example-move
    ④  (pmoves-finish-and-continue))))")
 
 ;; The code is a pipeline, which takes a `pmove` and then:
-;; 1. expands the pmove on all those offsets (directions)
+;; 1. expands the pmove on all for orthogonal offsets (directions)
 ;; 2. discards the pmove's which land on the same player's piece or change direction (Rooks can only move straight)
-;; 3. _enriches_ pmoves which capture an opponent piece
+;; 3. modifies the pmoves that capture an opponent piece
 ;; 4. for all remaining pmoves, return two versions: one with `:finished? false` and one with  `:finished? true`
+
+;; #### A general pattern here
+
+;; As we work on implementing most pieces, you will see that the general pattern
+;; for each move-expansion function follows this shape:
+;;
+;; 1. _Expand_: For the given `pmove`, generate a new one for each of the offsets supported by the piece type
+;; 1. _Discard_: those `pmoves` that don't pass either one of the checks (predicates) specified
+;; 1. _Modify_ (or, _enrich_): update the `pmoves`, for example when capturing, or promoting
+;; 1. _Finish_: Mark some `pmoves` as `:finished`, maybe keeping the original one as unfinished for the next iteration
+
 
 
 ;; ### The Knight
@@ -864,14 +875,14 @@ example-move
 ;; move-expansion function follows this shape:
 ;;
 ;; 1. _Expand_: For the given `pmove`, generate a new one for each of the offsets supported by the piece type
-;; 1. _Discard_: those `pmoves` that don't pass either one of the checks (predicates) specified
+;; 1. _Discard_: those `pmoves` that violate any of the constraints (predicates) specified
 ;; 1. _Modify_ (or, _enrich_): update the `pmoves`, for example when capturing, or promoting
 ;; 1. _Finish_: Mark some `pmoves` as `:finished`, maybe keeping the original one as unfinished for the next iteration
 
 ;; ### The Pawn
 
-;; Finally, let's look at the pawn. Here I found it simpler to thing the moving
-;; and capturing as two combined "rules", each following the above pattern:
+;; Finally, let's look at the pawn. Here I found it simpler to think about moving
+;; and capturing as two combined "rules":
 
 ^{::clerk/visibility {:code :hide :result :show}}
 (clerk/code
@@ -908,7 +919,8 @@ example-move
 ;; one step.
 
 ;; There's also _castling_, which is a pretty different type of move.
-;; Here's the piece of the expansion function:
+;;
+;; Here's the expansion function for the king:
 ^{::clerk/visibility {:code :hide :result :show}}
 (clerk/code
  "(defn expand-pmove-for-king [pmove]
@@ -929,7 +941,7 @@ example-move
      ⑥                          pmove-king-in-check?))
         (map pmoves-finish-castling)))")
 
-;; You can hopefully "read" rules of castling on the second section of that function:
+;; You can hopefully "read" the rule of castling on the second section of that function:
 ;; 1. move horizontally
 ;; 1.  stop if square occupied by same player
 ;; 1.  stay on straight line
@@ -984,7 +996,7 @@ example-move
 ;; The idea (again, taken from Sussman's book) is to define one or more
 ;; _aggregate_ rules, which our core move-generation function will call after
 ;; calling all pmove _expansion_ rules, giving them a chance to veto or enrich
-;; the `:finished` pmoves coming out of the `expansion` rules.
+;; the `:finished` pmoves coming out of the `expansion` phase.
 
 ;; It should now become clear why we called that function on prior sections
 ;; _`candidate-pmoves*`_: they were still not officially legal moves... just the
@@ -1094,7 +1106,7 @@ example-move
 (def game-1 (core/start-game chess/chess-game))
 
 
-;; And, and generate all possible moves for the start position... here sorted by the landing position of the moved piece:
+;; And generate all possible moves for the start position... here sorted by the landing position of the moved piece:
 #_(clerk/row
  (map (partial clerk/with-viewer viewers/tabbed-board-move-viewer)
       (sort-by #(-> % :steps last :piece :pos)
@@ -1117,12 +1129,13 @@ example-move
 ;; ## Next... (more exercises for the reader)
 ;;
 ;; For a full working version of our model, we need to _apply_ a possible move to our game state.
-;; We'd need to keep track of the history of moves as part of the game state.
+;; We'd need to keep track of the history of moves as part of that state.
 ;;
 ;; We will probably also need game-specific rules at the game-state level. For
-;; instance, to decide whether the game is over or not, and tell who won!
+;; instance, to decide whether the game is over or not, to tell who won!, and
+;; the threefold repetition rule.
 ;;
-;; With that in place, we could, for example, implement a user-interface. We'd
+;; With that in place, we could, for example, implement a user-interface to play games. We'd
 ;; basically need to implement the _game loop_.
 
 ;; And, of course: the goal was to model a generic core, so we could implement the rules for other games. For example:
@@ -1140,9 +1153,12 @@ example-move
 ;;
 ;; ## Thanks!
 ;;
-;; If you really read this far... **Thanks!** I'd appreciate any ideas and suggestions for improvements!
-
-;; See [Further Reading](./furtherreading) for suggested references.
+;; If you really read this far... **Thanks!**. I've learned quite a bit and had
+;; some fun writing this. I hope you got someting out of it too.
+;;
+;; I'd really appreciate any ideas and suggestions for improvements!
+;;
+;; See [Closing Thoughts](./closing) for suggested references and further reading.
 ;;
 
 #_
