@@ -49,7 +49,7 @@
 ;;
 ;;  * [Thinking the Clojure Way](https://www.youtube.com/watch?v=vK1DazRK_a0):  A great introductory talk by Rafal Dittwald about functional programming. It's all in JavaScript despite the title
 ;;  * Book: ["Grokking Simplicity" by Eric Normand](https://www.manning.com/books/grokking-simplicity). I highly recommend it to learn the important practical concepts on functional programming
-;;  * Book: ["Structure and Interpretation of Computer Programs" (aka: SCIP) by Abelson and Sussman](https://en.wikipedia.org/wiki/Structure_and_Interpretation_of_Computer_Programs): A classic. Excellent book on programming, from zero to pretty advanced topics. Published in 1995, code in Scheme. The book is freely available online
+;;  * Book: ["Structure and Interpretation of Computer Programs" (aka: SICP) by Abelson and Sussman](https://en.wikipedia.org/wiki/Structure_and_Interpretation_of_Computer_Programs): A classic. Excellent book on programming, from zero to pretty advanced topics. Published in 1995, code in Scheme. The book is freely available online
 ;;  * Book: ["Software Design for Flexibility" (Chris Hanson and Gerald Jay Sussman)](https://mitpress.mit.edu/9780262045490/software-design-for-flexibility/): More recent and more advanced than SCIP, from which I've took the idea of this exercise and some insights for the solution
 ;;  * Book: ["How to Design Programs" (Felleisen, Findler, Flatt, Krishnamurthi)](https://htdp.org/) Another famous intro to programming using Scheme
 ;;  * Paul Graham's [bottom-up design essay](http://www.paulgraham.com/progbot.html) (1993)

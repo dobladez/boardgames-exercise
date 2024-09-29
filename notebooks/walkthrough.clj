@@ -830,7 +830,7 @@ example-move
    ④  (pmoves-finish-and-continue))))")
 
 ;; The code is a pipeline, which takes a `pmove` and then:
-;; 1. expands the pmove on the four offsets (directions) of ther rook
+;; 1. expands the pmove on the four offsets (directions) of the rook
 ;; 2. discards the pmove's which land on the same player's piece or change direction (Rooks can only move straight)
 ;; 3. modifies the pmoves that capture an opponent piece
 ;; 4. for all remaining pmoves, return two versions: one with `:finished? false` and one with  `:finished? true`
@@ -1170,7 +1170,7 @@ example-move
 ;;
 ;; I'd really appreciate any ideas and suggestions for improvements!
 ;;
-;; See [Closing Thoughts](./closing) for suggested references and further reading.
+;; See [Closing Thoughts](../closing) for suggested references and further reading.
 ;;
 
 #_
