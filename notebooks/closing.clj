@@ -5,7 +5,7 @@
 ^{::clerk/visibility {:code :hide :result :show}}
 (clerk/html
  [:ol.border-b
-  [:li [:a {:href (clerk/doc-url "notebooks/welcome")} "Welcome"]]
+  [:li [:a {:href "../../"} "Welcome"]]
   [:li [:a {:href (clerk/doc-url "notebooks/intro")} "Introduction"]]
   [:li [:a {:href (clerk/doc-url "notebooks/walkthrough")} "Code Walkthrough"]]
   [:li [:strong "Closing Thoughts"]]])
