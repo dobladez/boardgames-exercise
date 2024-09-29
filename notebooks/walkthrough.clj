@@ -752,7 +752,7 @@ example-move
 ;; _Couldn't we write a wrapper that, given a board position, it calls a chess
 ;; engine to get all valid moves?_
 ;;
-;; This may sound like cheating, because we are using an existing implemenation
+;; This may sound like cheating, because we are using an existing system
 ;; of what we want to implement ourselves. However, it's perfectly valid and
 ;; quite common. Examples:
 
@@ -851,9 +851,12 @@ example-move
 ;; [^dry]: DRY (Don't Repeat Yourself) principle
 ;;
 ;; **💡Tip:** Sometimes we abuse the DRY principle. It's not about not repeating
-;; "lines of code"; it's about not repeating a _design decision_ on multiple
-;; places... to avoid the risk of making a change only on one of those places. I
-;; don't see that risk here.
+;; "lines of code"; it's about not repeating a _piece of knowledge_ on multiple
+;; places to avoid the risk of making a future change only on one of those
+;; places. I don't see that risk here. Actually, if we want to experiment with
+;; chess variations, we'd be better off keeping the rules for each piece
+;; self-contained.
+;;
 
 
 ;; ### The Knight

@@ -24,7 +24,7 @@
 ;; * I re-started reading book _"Software Design for
 ;; Flexibility_".[^sdff_book] Coincidentally, chapter _2.4 "Abstracting a
 ;; Domain"_ models the game of Checkers. It then proceeds to abstract a core
-;; domain, and leaves the implement the rules of Chess as an exercise.
+;; domain, and leaves the implementation of the rules of Chess as an exercise.
 ;; [^sdff_book]: by Chris Hanson and Gerald Jay Sussman ![image](https://mit-press-us.imgix.net/covers/9780262045490.jpg?auto=format&w=298&dpr=2&q=80)
 ;;
 ;; Soon after, I found myself working on the exercise, hoping to achieve a

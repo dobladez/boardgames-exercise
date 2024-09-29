@@ -38,22 +38,27 @@
 ;; **Data > Code**: Prefer data to code. Look at our rule functions: as
 ;; implemented, they are very close to being just _data_ too: a good next step
 ;; could be to define a structure to express expansion rules as data (given a
-;; rich set of primitives). Then we could read the rules from configurations
+;; rich set of primitives). Then we could read the rules from configuration
 ;; files (yaml, xml, json or edn), or a database, allowing end users to define
-;; new pieces and games. Contrast that with having to code new Classes.
+;; new pieces and games.
 ;;
 ;;
-;; Here are some recommended readings related to these ideas. (Let me know your suggestions!):
+;; ## References
+;;
+;; Some resources related to the ideas from this exercise:
 ;;
 ;;  * [Thinking the Clojure Way](https://www.youtube.com/watch?v=vK1DazRK_a0):  A great introductory talk by Rafal Dittwald about functional programming. It's all in JavaScript despite the title
 ;;  * Book: ["Grokking Simplicity" by Eric Normand](https://www.manning.com/books/grokking-simplicity). I highly recommend it to learn the important practical concepts on functional programming
 ;;  * Book: ["Structure and Interpretation of Computer Programs" (aka: SCIP) by Abelson and Sussman](https://en.wikipedia.org/wiki/Structure_and_Interpretation_of_Computer_Programs): A classic. Excellent book on programming, from zero to pretty advanced topics. Published in 1995, code in Scheme. The book is freely available online
-;;  * Book: ["Software Design for Flexibility" (Chris Hanson and Gerald Jay Sussman)](https://mitpress.mit.edu/9780262045490/software-design-for-flexibility/): More recent and more advanced then SCIP, from which I've took the idea of this exercise and some insights for the solution
+;;  * Book: ["Software Design for Flexibility" (Chris Hanson and Gerald Jay Sussman)](https://mitpress.mit.edu/9780262045490/software-design-for-flexibility/): More recent and more advanced than SCIP, from which I've took the idea of this exercise and some insights for the solution
 ;;  * Book: ["How to Design Programs" (Felleisen, Findler, Flatt, Krishnamurthi)](https://htdp.org/) Another famous intro to programming using Scheme
 ;;  * Paul Graham's [bottom-up design essay](http://www.paulgraham.com/progbot.html) (1993)
 ;;  * The content here is all written as [Clerk](https://book.clerk.vision) _notebooks_
 ;;  * https://moldabledevelopment.com/
 ;;  * https://clojure.org/
-;;  * [FlowStorm](https://www.flow-storm.org/): The excellent tracing debugger for Clojure (by [jpmonettas](https://github.com/sponsors/jpmonettas)) on which the code-steppers on this notebooks are based.
+;;  * [FlowStorm](https://www.flow-storm.org/): The excellent tracing debugger for Clojure (by [jpmonettas](https://github.com/sponsors/jpmonettas)) on which the code-steppers on this notebooks are based
+;;  * All talks by Rich Hickey
+;;
+;; Let me know your suggestions!
 ;;
 ;; Thanks again, and happy hacking! 👋
