@@ -105,8 +105,8 @@
 ^{:nextjournal.clerk/visibility {:code :show :result :hide}
   ::clerk/auto-expand-results? true}
 { :pieces #{}
-  :row-n 3
-  :col-n 3 }
+  :row-n 8
+  :col-n 8 }
 
 ;; The value on the `:pieces` key is a Set of pieces[^clojure-sets], where each piece is another Map
 ;; with its attributes. Here's another board with a few pieces:
