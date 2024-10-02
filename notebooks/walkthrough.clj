@@ -196,7 +196,7 @@
 
 
 ;; OK. What if we want to create a standard chess board on its starting
-;; possition? That'd be pretty verbose with our new maps representation. It was
+;; position? That'd be pretty verbose with our new maps representation. It was
 ;; short and "visual" with the matrix representation we started with... not
 ;; anymore 😕.
 
