@@ -167,7 +167,7 @@
 ;; custom tools built for each problem.
 
 ;; **💡Tip:** Do spend time dreaming-up new tools to make your job easier, less
-;; error-prone, more "explainable", visual, easiert to monitor, etc. In my
+;; error-prone, more "explainable", visual, easier to monitor, etc. In my
 ;; experience, most of us developers do not spend enough time working on our own
 ;; tools... we just work with what's already available to us.
 
