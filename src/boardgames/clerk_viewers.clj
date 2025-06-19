@@ -19,8 +19,8 @@
 (def board-render-fn
 
   '(fn [[board from-pos to-pos captures] {:as opts :keys [path viewer !expanded-at] :or {path []}}]
-     (let [collapsible? false #_ (> (count path) 4)
-           expanded? true #_ (or (not collapsible?) (get @!expanded-at path))
+     (let [collapsible? false #_(> (count path) 4)
+           expanded? true #_(or (not collapsible?) (get @!expanded-at path))
            row-count (if expanded? (count board) 1)
            col-count (count (first board))
            capture-pos (:pos (first captures))
@@ -53,6 +53,8 @@
                                   player-n (if (= (name square)
                                                   (clojure.string/lower-case (name square)))
                                              1 0)]
+
+                              ^{:key (str col-idx "-" row-idx)}
                               [:div.inline-block.flex.border-solid.justify-center.w-8.h-8.leading-7
                                {:id (str col-idx "-" row-idx)
                                 :style  {:border-color (condp = (str [col-idx row-idx])
@@ -60,7 +62,7 @@
                                                          (str from-pos) "blue"
                                                          (str to-pos) "green"
                                                          nil)
-                                         :border-width (when (contains?  #{from-pos to-pos}  [col-idx row-idx]) "2px")
+                                         :border-width (when (contains?  (hash-set from-pos to-pos)  [col-idx row-idx]) "2px")
                                          :text-shadow (piece-style-by-player player-n)
                                          :background-color (if (odd? (+ col-idx row-idx))
                                                              "#f0d9b5"
@@ -72,9 +74,9 @@
                                   (when (= (str [col-idx row-idx]) (str capture-pos))
                                     [:div.text-red-500.hidden.group-hover:inline captures-icon])]
                                  (piece-to-icon square))]))))))))]
-         (when (and from-pos to-pos)
-           [:span.text-slate-500.text-xs.text-center.font-sans (str "From " from-pos " to " to-pos
-                                                                    (when capture-pos (str " capturing " (some-> captures first :type))))])]])))
+         #_(when (and from-pos to-pos)
+             [:span.text-slate-500.text-xs.text-center.font-sans (str "From " from-pos " to " to-pos
+                                                                      (when capture-pos (str " capturing " (some-> captures first :type))))])]])))
 
 
 ;; ## Define a Clerk viewer for boards
@@ -92,8 +94,9 @@
                                (fn [board]
                                  (let [board (core/board->symbolic board)
                                        from-pos nil
-                                       to-pos nil]
-                                   [board from-pos to-pos]))))
+                                       to-pos nil
+                                       captures nil]
+                                   [board from-pos to-pos captures]))))
    :render-fn board-render-fn})
 
 #_^{:nextjournal.clerk/visibility {:result :hide}}
@@ -126,9 +129,9 @@
                                        board (:board (first steps))
                                        from-pos (->  (last steps) :piece :pos)
                                        to-pos  (->  (first steps) :piece :pos)
-                                       captures? (:captures (first steps))]
+                                       captures (:captures (first steps))]
 
-                                   [(core/board->symbolic board) from-pos to-pos captures?]))))
+                                   [(core/board->symbolic board) from-pos to-pos captures]))))
    :render-fn board-render-fn})
 
 
@@ -155,13 +158,19 @@
                       [:div.flex.items-center.font-sans.text-xs.mb-3
                        [:span.text-slate-500.mr-2 "View As:"]]
                       (map (fn [label]
+                             ^{:key label}
                              [:button.px-3.py-1.font-medium.hover:bg-indigo-50.rounded-full.hover:text-indigo-600
                               {:class (if (= @!selected-label label) "bg-indigo-100 text-indigo-600" "text-slate-500")
                                :on-click #(reset! !selected-label label)}
                               label]))
                       (keys label->val))
-                     [:div
-                      [nextjournal.clerk.render/inspect-presented (get label->val @!selected-label)]]]))}))
+                     [:div.min-h-72
+                      [nextjournal.clerk.render/inspect-presented
+                       (-> (get label->val @!selected-label)
+                           (assoc :nextjournal/expanded-at
+
+                                  {[1 "Data"] true
+                                   [1 "Data" 2 1] true }))]]]))}))
 
 ;; We'll use this to define board and move viewers that display both a code view
 ;; and a graphical board view of the value.
@@ -209,6 +218,7 @@ test-board
                     [:div.grid.gap-4 {:class (str "grid-cols-" (count (keys label->val)))}]
 
                     (map (fn [[label val]]
+                           ^{:key label}
                            [:div.overflow-x-auto.max-h-72.pb-1 ;; note: the padding avoids a vertical scrollbar
                             ^{::clerk/auto-expand-results? true}
                             [nextjournal.clerk.render/inspect-presented ^{::clerk/auto-expand-results? true} val]]) label->val))])}))
