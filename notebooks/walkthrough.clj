@@ -259,9 +259,12 @@
 (def symboard (core/board->symbolic a-chess-board))
 
 
-;; **💡Tip:** This technique of having another an alternate representation for
-;; an domain entity is quite common and useful in many situations. Some problems
-;; become easier from a different perspective/representation.
+;; **💡Tip:** This technique of having another representation for some aspect of
+;;  your problem domain is quite common and useful in many situations. Some
+;;  problems become easier from a different perspective/representation.[^polar-coords]
+
+;; [^polar-coords]: Example from math: Polar coordinates. The equation `x²+y²=4`
+;; in cartesian coordinates becomes `r=2` in polar. Much easier to work with.
 
 ;; For example: What if we want to shuffle all the pieces on the board? With the
 ;; matrix representation it's easy to manipulate the pieces using Clojure's
@@ -411,9 +414,11 @@ example-move
 ;; `:finished?` moves is generic: independent from the type of piece, and even
 ;; from which game we are implementing
 ;;
-;; Let's write our first function to expand the `pmove` of a Rook. We'll do a first
-;; baby _step_ (no pun intended 🤡): we'll move the piece one square to the
+;; Let's write our first function to expand the `pmove` of a Rook. We'll do a
+;; first baby _step_:[^pun1] we'll move the piece one square to the
 ;; right (ignoring collisions, capturing, and board dimensions):
+;; [^pun1]: no pun intended 🤡
+
 ^{::clerk/visibility {:code :show :result :hide}}
 (defn expand-pmove-rook-v1 [pmove]
   (let [last-step (-> pmove :steps first)
@@ -591,7 +596,8 @@ example-move
 ;; well-behaving expansion functions... if these don't stop adding new
 ;; un-`:finished?` pmoves on each call, our function will diverge and never
 ;; terminate (we'll overflow the stack). Exercise: add safe guards to limit our
-;; recursive function from going _overboard_ (another pun, intended 🤡).
+;; recursive function from going _overboard_.[^pun2]
+;; [^pun2]: yep, another pun. Intended 🤡
 ;;
 ;; Let's try it. Again: go straight to the end to see the final result:
 
@@ -769,7 +775,7 @@ example-move
 ;;
 ;; [^java-tck]: The [Java TCK (Technology Compatibility
 ;; Kit)](https://www.jcp.org/en/resources/tdk) is a set of tests for the Java platform. Not
-;; just the language, but the Virtual Machines and standard library.
+;; just the language, but the Virtual Machines and standard library
 ;;
 ;; [^sfqllogictest]: [SQLLogicTest](https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki)
 ;; is _"...designed to verify that an SQL database engine computes correct results
@@ -851,12 +857,12 @@ example-move
 ;; [^dry]: DRY (Don't Repeat Yourself) principle
 ;;
 ;; **💡Tip:** Sometimes we abuse the DRY principle. It's not about not repeating
-;; "lines of code"; it's about not repeating a _piece of knowledge_ on multiple
+;; "lines of code"; it's about not repeating a _*piece*[^pun3] of knowledge_  on multiple
 ;; places to avoid the risk of making a future change only on one of those
 ;; places. I don't see that risk here. Actually, if we want to experiment with
 ;; chess variations, we'd be better off keeping the rules for each piece
 ;; self-contained.
-;;
+;; [^pun3]: and yet another pun 🤡. Last one, I promise
 
 
 ;; ### The Knight

@@ -1,6 +1,6 @@
 {:paths ["src" "notebooks" "dev"]
  :deps { #_#_ org.clojure/clojure {:mvn/version "1.11.1"}
-        io.github.nextjournal/clerk {:mvn/version "0.16.1016"
+        io.github.nextjournal/clerk {:mvn/version "0.17.1102" #_"0.16.1016"
                                      #_#_#_#_:git/url "https://github.com/nextjournal/clerk.git" :sha "47d0e273643c64d1bfa9908f43f192daf50611ca"
 
 

@@ -12,7 +12,7 @@ __Assignment__: Model the rules of Chess. Design the code with the
  goal is to create a shared core model that can also be used for other
 board games, such as Checkers, Tic-Tac-Toe, and similar.
 
-The code includes [Clerk](https://github.com/nextjournal/clerk) notebooks with a code walkthrough of the implementation with visualizatons and code stepper.
+The code includes [Clerk](https://github.com/nextjournal/clerk) notebooks with a code walkthrough of the implementation with visualizatons and code-stepper/debugger.
 
 ## To start Clerk notebooks locally
 Install clj and babashka. Then run:
