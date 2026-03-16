@@ -58,23 +58,34 @@
 (deftest chess-pawn-capturing-moves
 
   (t/expect-chess-moves {:piece :P
-                           :extra-checks [{} {} {:captures '(:p)}]}
+                         :extra-checks [{} {} {:captures '(:p)}]}
 
-                          '[[- - - - -]
-                            [- - - - -]
-                            [- - p - -]
-                            [- P - - -]
-                            [- - - - -]]
+                        '[[- - - - -]
+                          [- - - - -]
+                          [- - p - -]
+                          [- P - - -]
+                          [- - - - -]]
 
-                          '[[- - - - -] [- - - - -] [- - - - -]
-                            [- - - - -] [- P - - -] [- - - - -]
-                            [- P p - -] [- - p - -] [- - P - -]
-                            [- - - - -] [- - - - -] [- - - - -]
-                            [- - - - -] [- - - - -] [- - - - -]]))
+                        '[[- - - - -] [- - - - -] [- - - - -]
+                          [- - - - -] [- P - - -] [- - - - -]
+                          [- P p - -] [- - p - -] [- - P - -]
+                          [- - - - -] [- - - - -] [- - - - -]
+                          [- - - - -] [- - - - -] [- - - - -]])
+
+  (t/expect-chess-moves {:piece :P
+                         :extra-checks [{} {} {:captures '(:p)}]}
+
+                        '[[- - - - -]
+                          [- - - - -]
+                          [- - p - -]
+                          [- - P - -]
+                          [- - - - -]]
+
+                        '[]))
 
 #_
 ^{:nextjournal.clerk/visibility {:code :hide :result :hide}}
-(clerk/add-viewers! [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer])
+  (clerk/add-viewers! [viewers/board-viewer viewers/board-move-viewer viewers/side-by-side-move-viewer])
 #_
   ^{:nextjournal.clerk/visibility {:code :hide :result :show}}
   (t/view-test-case (t/expect-chess-moves-2 {:piece :P

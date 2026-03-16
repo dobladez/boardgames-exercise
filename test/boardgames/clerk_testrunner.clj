@@ -12,7 +12,8 @@
             [boardgames.rook-test]
             [boardgames.simple-test]
             [boardgames.kingcheck-test]
-
+            [boardgames.stockfish-parity-test]
+            
             ))
 
 

@@ -8,8 +8,8 @@ This repo is a solution to exercise 2.13 of book _"Software Design for
 Flexibility"_ by by Chris Hanson and Gerald Jay Sussman. In Clojure.
 
 __Assignment__: Model the rules of Chess. Design the code with the
- flexibility to easily add new types of pieces with unique movements. The
- goal is to create a shared core model that can also be used for other
+flexibility to easily add new types of pieces with unique movements. The
+goal is to create a shared core model that can also be used for other
 board games, such as Checkers, Tic-Tac-Toe, and similar.
 
 The code includes [Clerk](https://github.com/nextjournal/clerk) notebooks with a code walkthrough of the implementation with visualizatons and code stepper.
@@ -34,6 +34,30 @@ the Clerk server.
 bb test
 # or:
 bb test --skip-meta :failing-on-purpose
+```
+
+Stockfish parity tests are included and tagged with `:stockfish` metadata. They
+auto-skip when the `stockfish` binary is not available.
+
+You can provide an explicit binary path with:
+
+```sh
+export STOCKFISH_BIN=/path/to/stockfish
+bb test --skip-meta :failing-on-purpose
+```
+
+On PowerShell:
+
+```powershell
+$env:STOCKFISH_BIN = "C:\\path\\to\\stockfish.exe"
+bb test --skip-meta :failing-on-purpose
+```
+
+For debugging purposes, you can enable verbose output from the Stockfish tests by adding STOCKFISH_DEBUG env var:
+
+```sh
+export STOCKFISH_DEBUG=true
+bb test --only-meta :stockfish
 ```
 
 ## To build the static site

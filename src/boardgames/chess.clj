@@ -96,6 +96,7 @@
         (expand-pmove-dirs [↑])
         (pmoves-discard (some-fn pmove-changed-direction?
                                  pmove-on-same-player-piece?
+                                 pmove-on-other-player-piece?
                                  (partial pmove-max-steps?
                                           (if (pmove-piece-1st-move? pmove) 2 1))))
         (pmoves-finish-and-continue))
@@ -225,5 +226,5 @@
        (interpose "/")
        (apply str)))
 
-#_(comment
+#_(comment 
   (board->fen initial-chess-symbolic-board))
