@@ -246,7 +246,12 @@
                                     (map #(clerk/with-viewer board-viewers/board-viewer %)))]]))))]])]
 
              (when message
-               [:em.text-orange-500 message])]
+               [:div
+                [:em.text-orange-500 (if (string? message) message (pr-str (dissoc message :board)))]
+                (when-let [board (and (map? message) (:board message))]
+                  [:div.mt-2
+                   [:div.font-medium.text-black.mb-1 "Board"]
+                   (clerk/with-viewer board-viewers/board-viewer board)])])]
       :error [:div.p-1.my-2 {:style {:widht "100%"}}
               [:em.text-red-600.font-medium (str name ":" line)]
               [:div.mt-2.rounded-md.shadow-lg.border.border-gray-300.overflow-scroll
