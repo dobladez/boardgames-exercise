@@ -786,8 +786,13 @@ example-move
 ;; It might serve as a good base against which to test your
 ;; implementation. There is no shame in that.
 
-;; I leave that as fun exercise for the reader :-). I'd look into stockfish, and
-;; interact with it's UCI (universal chess interface).
+;; I leave that as fun exercise for the reader 😉. I'd look into stockfish, and
+;; interact with it's UCI (universal chess interface).[^stockfish-tests]
+;;
+;; [^stockfish-tests]: _March 2026 Update!_ [Tomás](https://github.com/TomasBruno1) and [Manu](https://github.com/manumasjoan) contributed
+;; automated tests against the `stockfish` engine 🎉
+;; \
+;; See [PR #4](https://github.com/dobladez/boardgames-exercise/pull/4) (merged). And no surprise: they found a bug! Thanks!
 ;;
 ;; ---
 
